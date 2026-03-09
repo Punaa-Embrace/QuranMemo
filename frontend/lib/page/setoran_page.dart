@@ -1,9 +1,50 @@
 import 'package:flutter/material.dart';
+import '../services/quran_service.dart';
+import '../models/surah_model.dart';
 import '../theme/app_theme.dart';
-import '../utils/constants.dart';
+import 'rekam_setoran_page.dart';
 
-class SetoranPage extends StatelessWidget {
+class SetoranPage extends StatefulWidget {
   const SetoranPage({Key? key}) : super(key: key);
+
+  @override
+  State<SetoranPage> createState() => _SetoranPageState();
+}
+
+class _SetoranPageState extends State<SetoranPage> {
+  List<Surah> _surahList = [];
+  Surah? _selectedSurah;
+  int _maxAyat = 0;
+
+  final TextEditingController _ayatStart = TextEditingController();
+  final TextEditingController _ayatEnd = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSurah();
+  }
+
+  Future<void> _loadSurah() async {
+    final data = await QuranService.getDaftarSurat();
+
+    setState(() {
+      _surahList = data;
+      _selectedSurah = data.first;
+    });
+
+    _loadDetailSurah();
+  }
+
+  Future<void> _loadDetailSurah() async {
+    if (_selectedSurah == null) return;
+
+    final detail = await QuranService.getDetailSurat(_selectedSurah!.nomor);
+
+    setState(() {
+      _maxAyat = detail.jumlahAyat;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,25 +89,21 @@ class SetoranPage extends StatelessWidget {
           bottomRight: Radius.circular(30),
         ),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppTheme.white),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-              ),
-              const Text(
-                "Setor Hafalan",
-                style: TextStyle(
-                  color: AppTheme.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppTheme.white),
+            onPressed: () {
+              Navigator.pop(context);
+            },
+          ),
+          const Text(
+            "Setor Hafalan",
+            style: TextStyle(
+              color: AppTheme.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -79,10 +116,7 @@ class SetoranPage extends StatelessWidget {
       children: [
         const Text(
           "Pilih Surah",
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
         Container(
@@ -92,36 +126,27 @@ class SetoranPage extends StatelessWidget {
             borderRadius: BorderRadius.circular(15),
           ),
           child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: Constants.surahList[0],
+            child: DropdownButton<Surah>(
+              value: _selectedSurah,
               isExpanded: true,
-              items: Constants.surahList.map((surah) {
+              items: _surahList.map((surah) {
                 return DropdownMenuItem(
                   value: surah,
-                  child: Text("Surah $surah (QS. ${_getSurahNumber(surah)})"),
+                  child: Text("${surah.namaLatin} (${surah.jumlahAyat} ayat)"),
                 );
               }).toList(),
-              onChanged: (value) {},
+              onChanged: (value) {
+                setState(() {
+                  _selectedSurah = value;
+                });
+
+                _loadDetailSurah();
+              },
             ),
           ),
         ),
       ],
     );
-  }
-
-  String _getSurahNumber(String surah) {
-    switch (surah) {
-      case "Al-Baqarah":
-        return "2";
-      case "Ali Imran":
-        return "3";
-      case "An-Nisa'":
-        return "4";
-      case "Al-Maidah":
-        return "5";
-      default:
-        return "";
-    }
   }
 
   Widget _buildRentangAyat() {
@@ -130,10 +155,7 @@ class SetoranPage extends StatelessWidget {
       children: [
         const Text(
           "Rentang Ayat",
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
         Row(
@@ -145,9 +167,10 @@ class SetoranPage extends StatelessWidget {
                   color: AppTheme.white,
                   borderRadius: BorderRadius.circular(15),
                 ),
-                child: const TextField(
+                child: TextField(
+                  controller: _ayatStart,
                   decoration: InputDecoration(
-                    hintText: "Dari ayat",
+                    hintText: "Dari ayat (1 - $_maxAyat)",
                     border: InputBorder.none,
                   ),
                   keyboardType: TextInputType.number,
@@ -162,9 +185,10 @@ class SetoranPage extends StatelessWidget {
                   color: AppTheme.white,
                   borderRadius: BorderRadius.circular(15),
                 ),
-                child: const TextField(
+                child: TextField(
+                  controller: _ayatEnd,
                   decoration: InputDecoration(
-                    hintText: "Sampai ayat",
+                    hintText: "Sampai ayat (1 - $_maxAyat)",
                     border: InputBorder.none,
                   ),
                   keyboardType: TextInputType.number,
@@ -183,34 +207,24 @@ class SetoranPage extends StatelessWidget {
       children: [
         const Text(
           "Metode Setoran",
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 25),
-                decoration: BoxDecoration(
-                  color: Colors.green[100],
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(
-                    color: AppTheme.primaryColor,
-                    width: 2,
-                  ),
-                ),
-                child: const Column(
-                  children: [
-                    Icon(Icons.mic, color: AppTheme.primaryColor),
-                    Text("Rekaman Suara"),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 25),
+          decoration: BoxDecoration(
+            color: Colors.green[100],
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: AppTheme.primaryColor, width: 2),
+          ),
+          child: const Column(
+            children: [
+              Icon(Icons.videocam, color: AppTheme.primaryColor, size: 30),
+              SizedBox(height: 5),
+              Text("Rekaman Video"),
+            ],
+          ),
         ),
       ],
     );
@@ -227,9 +241,25 @@ class SetoranPage extends StatelessWidget {
             borderRadius: BorderRadius.circular(15),
           ),
         ),
-        onPressed: () {},
+        onPressed: () {
+          if (_selectedSurah == null ||
+              _ayatStart.text.isEmpty ||
+              _ayatEnd.text.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Lengkapi data setoran terlebih dahulu"),
+              ),
+            );
+            return;
+          }
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const RekamSetoranPage()),
+          );
+        },
         child: const Text(
-          "Kirim Setoran",
+          "Mulai Rekam Setoran",
           style: TextStyle(fontSize: 16),
         ),
       ),
