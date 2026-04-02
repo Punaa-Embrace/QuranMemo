@@ -16,9 +16,9 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
   SurahDetail? _surahDetail;
   bool _isLoading = true;
   String _errorMessage = '';
-  String _selectedQari = '05'; // Default Misyari Rasyid Al-Afasy
-  bool _showTranslation = true; // Tampilkan terjemahan
-  bool _showLatin = true; // Tampilkan latin
+  String _selectedQari = '05'; // Default Qari
+  bool _showTranslation = true; 
+  bool _showLatin = true; 
   late final AudioPlayer _audioPlayer;
   bool _isAudioLoading = false;
   bool _isAudioPlaying = false;
@@ -131,7 +131,7 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
     }
   }
 
-  // Fungsi untuk membersihkan tag HTML dari deskripsi
+  // biar bersihin tag HTML dari deskripsi
   String _cleanHtmlDescription(String htmlText) {
     // Hapus tag <i> dan </i>
     String clean = htmlText.replaceAll('<i>', '');
@@ -140,7 +140,7 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
     clean = clean.replaceAll('<br>', '\n');
     clean = clean.replaceAll('<br/>', '\n');
     clean = clean.replaceAll('<br />', '\n');
-    // Hapus tag lainnya jika ada
+    // Hapus tag lainnya kalo ada
     clean = clean.replaceAll(RegExp(r'<[^>]*>'), '');
     return clean;
   }
@@ -392,13 +392,12 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
   Widget _buildDetailContent() {
     if (_surahDetail == null) return const SizedBox();
 
-    // Tentukan warna berdasarkan tempat turun (sama seperti di surat_page)
+    // nge nentukan warna sesuai surah turun
     final bool isMakkiyah = _surahDetail!.tempatTurun.toLowerCase() == 'mekah';
     final Color tempatWarna = isMakkiyah ? Colors.purple : Colors.blue;
 
     return CustomScrollView(
       slivers: [
-        // App Bar dengan background hijau
         SliverAppBar(
           expandedHeight: 220,
           pinned: true,
@@ -700,7 +699,7 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 1,
       color: isPlayingThisAyat
-          ? const Color(0xFFE8F5E9) // hijau soft
+          ? const Color(0xFFE8F5E9)
           : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -714,7 +713,7 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            /// HEADER AYAT
+            // Header Ayat
             Row(
               children: [
                 Container(
@@ -742,7 +741,7 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
 
                 const Spacer(),
 
-                /// TOMBOL PLAY / STOP
+                // Tombol Play sama Stop
                 Container(
                   decoration: const BoxDecoration(
                     color: AppTheme.primaryColor,
@@ -784,7 +783,7 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
                               return;
                             }
 
-                            /// STOP AYAT
+                            // STOP AYAT
                             if (isPlayingThisAyat) {
                               await _audioPlayer.stop();
                               setState(() {
@@ -795,7 +794,7 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
                               return;
                             }
 
-                            /// PLAY AYAT
+                            // PLAY AYAT
                             await _audioPlayer.stop();
 
                             setState(() {
@@ -831,7 +830,7 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
 
             const SizedBox(height: 16),
 
-            /// TEKS ARAB
+            // TEKS ARAB
             Text(
               ayat.teksArab,
               textAlign: TextAlign.right,
@@ -842,7 +841,7 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
               ),
             ),
 
-            /// LATIN
+            // LATIN
             if (_showLatin && ayat.teksLatin.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
@@ -855,7 +854,7 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
               ),
             ],
 
-            /// TERJEMAHAN
+            // TERJEMAHAN
             if (_showTranslation && ayat.teksIndonesia.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(

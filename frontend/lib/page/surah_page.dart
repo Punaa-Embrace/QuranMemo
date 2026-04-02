@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/quran_service.dart';
 import '../models/surah_model.dart';
+import '../components/custom_header.dart';
 import 'surah_detail_page.dart';
 
 class SuratPage extends StatefulWidget {
@@ -60,8 +61,8 @@ class _SuratPageState extends State<SuratPage> {
       } else {
         _filteredSurat = _daftarSurat.where((surah) {
           return surah.namaLatin.toLowerCase().contains(query) ||
-                 surah.arti.toLowerCase().contains(query) ||
-                 surah.nama.toLowerCase().contains(query);
+              surah.arti.toLowerCase().contains(query) ||
+              surah.nama.toLowerCase().contains(query);
         }).toList();
       }
     });
@@ -72,94 +73,30 @@ class _SuratPageState extends State<SuratPage> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
+          top: true,
         child: Column(
           children: [
-            _buildHeader(),
-            _buildSearchBar(),
+            CustomHeader(
+              title: "QuranMemo",
+              imagePath: "assets/images/self.jpg",
+              showSearch: true,
+              hintText: "Cari surat...",
+              controller: _searchController,
+              onChanged: (value) => _filterSurat(),
+            ),
             Expanded(
               child: _isLoading
                   ? _buildLoading()
                   : _errorMessage.isNotEmpty
-                      ? _buildErrorWidget()
-                      : RefreshIndicator(
-                          onRefresh: _loadDaftarSurat, // Panggil fungsi yang sama
-                          color: AppTheme.primaryColor,
-                          backgroundColor: Colors.white,
-                          child: _buildSuratList(),
-                        ),
+                  ? _buildErrorWidget()
+                  : RefreshIndicator(
+                      onRefresh: _loadDaftarSurat, // Panggil fungsi yang sama
+                      color: AppTheme.primaryColor,
+                      backgroundColor: Colors.white,
+                      child: _buildSuratList(),
+                    ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: AppTheme.primaryColor,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Padding(padding: 
-                const EdgeInsets.only(right: 20), 
-              ),
-              const Text(
-                "Daftar Surah",
-                style: TextStyle(
-                  color: AppTheme.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  
-                ),
-              ),
-              const Spacer(),
-            ],
-          ),
-          const SizedBox(height: 8),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: AppTheme.white,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              blurRadius: 5,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: "Cari surat...",
-            border: InputBorder.none,
-            icon: Icon(Icons.search, color: AppTheme.primaryColor),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
-                    onPressed: () {
-                      _searchController.clear();
-                    },
-                  )
-                : null,
-          ),
         ),
       ),
     );
@@ -190,11 +127,7 @@ class _SuratPageState extends State<SuratPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red[300],
-            ),
+            Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
             const SizedBox(height: 16),
             Text(
               "Gagal memuat data",
@@ -226,54 +159,45 @@ class _SuratPageState extends State<SuratPage> {
     );
   }
 
-Widget _buildSuratList() {
-  if (_filteredSurat.isEmpty) {
-    return ListView(
-      children: [
-        Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.search_off,
-                size: 64,
-                color: Colors.grey[400],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "Surat tidak ditemukan",
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
+  Widget _buildSuratList() {
+    if (_filteredSurat.isEmpty) {
+      return ListView(
+        children: [
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  "Surat tidak ditemukan",
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: _filteredSurat.length,
+      itemBuilder: (context, index) {
+        final surah = _filteredSurat[index];
+        return _buildSuratCard(surah, index + 1);
+      },
     );
   }
-
-  return ListView.builder( 
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    itemCount: _filteredSurat.length,
-    itemBuilder: (context, index) {
-      final surah = _filteredSurat[index];
-      return _buildSuratCard(surah, index + 1);
-    },
-  );
-}
 
   Widget _buildSuratCard(Surah surah, int index) {
     // Warna berbeda untuk surat Makkiyah dan Madaniyah
     final bool isMakkiyah = surah.tempatTurun.toLowerCase() == 'mekah';
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         onTap: () {
           Navigator.push(
@@ -287,7 +211,7 @@ Widget _buildSuratList() {
           width: 45,
           height: 45,
           decoration: BoxDecoration(
-            color: isMakkiyah 
+            color: isMakkiyah
                 ? Colors.purple.withOpacity(0.1)
                 : Colors.blue.withOpacity(0.1),
             shape: BoxShape.circle,
@@ -319,10 +243,7 @@ Widget _buildSuratList() {
                   const SizedBox(height: 2),
                   Text(
                     surah.arti,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -333,7 +254,7 @@ Widget _buildSuratList() {
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
-                fontFamily: 'Uthmani', // Jika ada font Arab
+                fontFamily: 'Uthmani',
               ),
             ),
           ],
@@ -345,7 +266,7 @@ Widget _buildSuratList() {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isMakkiyah 
+                  color: isMakkiyah
                       ? Colors.purple.withOpacity(0.1)
                       : Colors.blue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -367,10 +288,7 @@ Widget _buildSuratList() {
                 ),
                 child: Text(
                   "${surah.jumlahAyat} Ayat",
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: AppTheme.primaryColor,
-                  ),
+                  style: TextStyle(fontSize: 10, color: AppTheme.primaryColor),
                 ),
               ),
             ],
