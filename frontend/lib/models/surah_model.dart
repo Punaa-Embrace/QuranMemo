@@ -1,5 +1,3 @@
-// lib/models/surah_model.dart
-
 class SurahResponse {
   final int code;
   final String message;

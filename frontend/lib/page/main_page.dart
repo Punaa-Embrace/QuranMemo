@@ -3,26 +3,34 @@ import 'dashboard_page.dart';
 import 'setoran_page.dart';
 import 'surah_page.dart';
 import 'riwayat_page.dart';
-import 'akun_page.dart';
+import 'permainan_page.dart';
 import '../theme/app_theme.dart';
 
 class MainPage extends StatefulWidget {
-  const MainPage({Key? key}) : super(key: key);
+  final int initialIndex;
+  
+  const MainPage({Key? key, this.initialIndex = 0}) : super(key: key);
 
   @override
   State<MainPage> createState() => _MainPageState();
 }
 
 class _MainPageState extends State<MainPage> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
 
   final List<Widget> _pages = const [
     DashboardPage(),
     SetoranPage(),
     SuratPage(),
+    PermainanPage(),
     RiwayatPage(),
-    AkunPage(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,106 +41,171 @@ class _MainPageState extends State<MainPage> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.3),
+              color: Colors.grey.withOpacity(0.2),
               spreadRadius: 1,
-              blurRadius: 10,
-              offset: const Offset(0, -3),
+              blurRadius: 15,
+              offset: const Offset(0, -5),
             ),
           ],
         ),
-        child: NavigationBar(
-          selectedIndex: _selectedIndex,
-          backgroundColor: Colors.white,
-          elevation: 0,
-          height: 70, // Tinggi navbar
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          surfaceTintColor: Colors.transparent,
-          indicatorColor: AppTheme.primaryColor.withOpacity(0.1),
-          onDestinationSelected: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
-          destinations: [
-            // Beranda
-            NavigationDestination(
-              icon: _buildNavIcon(Icons.home, false, 0),
-              selectedIcon: _buildNavIcon(Icons.home, true, 0),
-              label: "Beranda",
+        child: SafeArea(
+          child: SizedBox(
+            height: 75,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(
+                  icon: Icons.home,
+                  label: "Beranda",
+                  index: 0,
+                ),
+                _buildNavItem(
+                  icon: Icons.upload,
+                  label: "Setoran",
+                  index: 1,
+                ),
+                _buildCenterNavItem(
+                  icon: Icons.menu_book,
+                  label: "Surat",
+                  index: 2,
+                ),
+                _buildNavItem(
+                  icon: Icons.emoji_events,
+                  label: "Permainan",
+                  index: 3,
+                ),
+                _buildNavItem(
+                  icon: Icons.history,
+                  label: "Riwayat",
+                  index: 4,
+                ),
+
+              ],
             ),
-            // Setoran
-            NavigationDestination(
-              icon: _buildNavIcon(Icons.upload, false, 1),
-              selectedIcon: _buildNavIcon(Icons.upload, true, 1),
-              label: "Setoran",
-            ),
-            // SURAT - DIPERBESAR DAN DI ATAS
-            NavigationDestination(
-              icon: _buildNavIcon(Icons.menu_book, false, 2, isSurat: true),
-              selectedIcon: _buildNavIcon(Icons.menu_book, true, 2, isSurat: true),
-              label: "Surat",
-            ),
-            // Riwayat
-            NavigationDestination(
-              icon: _buildNavIcon(Icons.history, false, 3),
-              selectedIcon: _buildNavIcon(Icons.history, true, 3),
-              label: "Riwayat",
-            ),
-            // Akun
-            NavigationDestination(
-              icon: _buildNavIcon(Icons.person, false, 4),
-              selectedIcon: _buildNavIcon(Icons.person, true, 4),
-              label: "Akun",
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildNavIcon(IconData icon, bool isSelected, int index, {bool isSurat = false}) {
-    if (isSurat) {
-      // SURAT: Lebih besar dan posisi di atas
-      return Container(
-        margin: const EdgeInsets.only(bottom: 10), // Geser ke atas dengan margin bottom
-        child: Container(
-          width: 60,
-          height: 80, 
-          decoration: BoxDecoration(
-            color: isSelected 
-                ? AppTheme.primaryColor 
-                : AppTheme.primaryColor.withOpacity(0.1),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isSelected 
-                  ? Colors.white 
-                  : AppTheme.primaryColor,
-              width: isSelected ? 3 : 1.5,
-            ),
-            boxShadow: isSelected ? [
-              BoxShadow(
-                color: AppTheme.primaryColor.withOpacity(0.5),
-                blurRadius: 12,
-                spreadRadius: 2,
-              ),
-            ] : null,
-          ),
-          child: Icon(
-            icon,
-            color: isSelected ? Colors.white : AppTheme.primaryColor,
-            size: 32,
-          ),
-        ),
-      );
-    }
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required int index,
+  }) {
+    final isSelected = _selectedIndex == index;
     
-    // ICON BIASA: Posisi normal di tengah
-    return Container(
-      margin: const EdgeInsets.only(top: 8, bottom: 8), // Biar tengah
-      child: Icon(
-        icon,
-        color: isSelected ? AppTheme.primaryColor : Colors.grey[600],
-        size: 24,
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedIndex = index;
+        });
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: Icon(
+              icon,
+              color: isSelected ? AppTheme.primaryColor : Colors.grey[500],
+              size: isSelected ? 28 : 24,
+            ),
+          ),
+          const SizedBox(height: 4),
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              color: isSelected ? AppTheme.primaryColor : Colors.grey[500],
+            ),
+            child: Text(label),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCenterNavItem({
+    required IconData icon,
+    required String label,
+    required int index,
+  }) {
+    final isSelected = _selectedIndex == index;
+    
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedIndex = index;
+        });
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Transform.translate(
+            offset: const Offset(0, -12),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              width: 55,
+              height: 55,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: isSelected
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppTheme.primaryColor,
+                          AppTheme.primaryColor.withOpacity(0.7),
+                        ],
+                      )
+                    : LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.grey[400]!,
+                          Colors.grey[300]!,
+                        ],
+                      ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withOpacity(0.4),
+                          blurRadius: 12,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
+                    : [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.2),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+              ),
+              child: Icon(
+                icon,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              color: isSelected ? AppTheme.primaryColor : Colors.grey[500],
+            ),
+            child: Text(label),
+          ),
+        ],
       ),
     );
   }

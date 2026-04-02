@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/quran_service.dart';
+import '../components/custom_header.dart';
 import '../models/surah_model.dart';
 import '../theme/app_theme.dart';
 import 'rekam_setoran_page.dart';
@@ -39,11 +40,19 @@ class _SetoranPageState extends State<SetoranPage> {
   Future<void> _loadDetailSurah() async {
     if (_selectedSurah == null) return;
 
-    final detail = await QuranService.getDetailSurat(_selectedSurah!.nomor);
+    final detail =
+        await QuranService.getDetailSurat(_selectedSurah!.nomor);
 
     setState(() {
       _maxAyat = detail.jumlahAyat;
     });
+  }
+
+  @override
+  void dispose() {
+    _ayatStart.dispose();
+    _ayatEnd.dispose();
+    super.dispose();
   }
 
   @override
@@ -53,7 +62,11 @@ class _SetoranPageState extends State<SetoranPage> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(context),
+            CustomHeader(
+              title: "QuranMemo",
+              imagePath: "assets/images/self.jpg",
+            ),
+
             Expanded(
               child: SingleChildScrollView(
                 child: Padding(
@@ -61,12 +74,34 @@ class _SetoranPageState extends State<SetoranPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildPilihSurah(),
+
+                      /// ===== SURAH =====
+                      const Text("Surah",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      _buildDropdownCard(),
+
+                      const SizedBox(height: 16),
+
+                      /// ===== AYAT =====
+                      const Text("Ayat",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      _buildAyatRange(),
+
+                      const SizedBox(height: 16),
+
+                      /// ===== INFO =====
+                      _buildInfoCard(),
+
                       const SizedBox(height: 20),
-                      _buildRentangAyat(),
+
+                      /// ===== VIDEO =====
+                      _buildVideoCard(),
+
                       const SizedBox(height: 20),
-                      _buildMetodeSetoran(),
-                      const SizedBox(height: 30),
+
+                      /// ===== BUTTON =====
                       _buildKirimButton(),
                     ],
                   ),
@@ -79,30 +114,154 @@ class _SetoranPageState extends State<SetoranPage> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  /// =========================
+  /// DROPDOWN SURAH
+  /// =========================
+  Widget _buildDropdownCard() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: AppTheme.primaryColor,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+          )
+        ],
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<Surah>(
+          value: _selectedSurah,
+          isExpanded: true,
+          hint: const Text("Pilih Surah"),
+          items: _surahList.map((surah) {
+            return DropdownMenuItem(
+              value: surah,
+              child: Text(
+                "${surah.namaLatin} (${surah.jumlahAyat} ayat)",
+              ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedSurah = value;
+            });
+
+            _loadDetailSurah();
+          },
         ),
+      ),
+    );
+  }
+
+  /// =========================
+  /// RENTANG AYAT
+  /// =========================
+  Widget _buildAyatRange() {
+    return Row(
+      children: [
+
+        /// DARI
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                )
+              ],
+            ),
+            child: TextField(
+              controller: _ayatStart,
+              keyboardType: TextInputType.number,
+              onChanged: (value) {
+                final num = int.tryParse(value);
+                if (num != null && num > _maxAyat) {
+                  _ayatStart.text = _maxAyat.toString();
+                  _ayatStart.selection = TextSelection.fromPosition(
+                    TextPosition(offset: _ayatStart.text.length),
+                  );
+                }
+              },
+              decoration: InputDecoration(
+                hintText: "Dari (1 - $_maxAyat)",
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 10),
+
+        /// SAMPAI
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                )
+              ],
+            ),
+            child: TextField(
+              controller: _ayatEnd,
+              keyboardType: TextInputType.number,
+              onChanged: (value) {
+                final num = int.tryParse(value);
+                if (num != null && num > _maxAyat) {
+                  _ayatEnd.text = _maxAyat.toString();
+                  _ayatEnd.selection = TextSelection.fromPosition(
+                    TextPosition(offset: _ayatEnd.text.length),
+                  );
+                }
+              },
+              decoration: InputDecoration(
+                hintText: "Sampai (1 - $_maxAyat)",
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// =========================
+  /// INFO CARD
+  /// =========================
+  Widget _buildInfoCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+          )
+        ],
       ),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppTheme.white),
-            onPressed: () {
-              Navigator.pop(context);
-            },
-          ),
-          const Text(
-            "Setor Hafalan",
-            style: TextStyle(
-              color: AppTheme.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+          const Icon(Icons.info_outline, color: Colors.grey),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "Pilih Surah & rentang ayat yang akan disetor.\nRekam bacaan dengan jelas dan benar.",
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+              ),
             ),
           ),
         ],
@@ -110,126 +269,43 @@ class _SetoranPageState extends State<SetoranPage> {
     );
   }
 
-  Widget _buildPilihSurah() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Pilih Surah",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: AppTheme.white,
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<Surah>(
-              value: _selectedSurah,
-              isExpanded: true,
-              items: _surahList.map((surah) {
-                return DropdownMenuItem(
-                  value: surah,
-                  child: Text("${surah.namaLatin} (${surah.jumlahAyat} ayat)"),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedSurah = value;
-                });
-
-                _loadDetailSurah();
-              },
+  /// =========================
+  /// VIDEO CARD
+  /// =========================
+  Widget _buildVideoCard() {
+    return Container(
+      width: double.infinity,
+      height: 160,
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+          )
+        ],
+      ),
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.videocam, size: 40, color: Colors.grey),
+          SizedBox(height: 8),
+          Text(
+            "Rekam Video",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildRentangAyat() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Rentang Ayat",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: AppTheme.white,
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: TextField(
-                  controller: _ayatStart,
-                  decoration: InputDecoration(
-                    hintText: "Dari ayat (1 - $_maxAyat)",
-                    border: InputBorder.none,
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: AppTheme.white,
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: TextField(
-                  controller: _ayatEnd,
-                  decoration: InputDecoration(
-                    hintText: "Sampai ayat (1 - $_maxAyat)",
-                    border: InputBorder.none,
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMetodeSetoran() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Metode Setoran",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 25),
-          decoration: BoxDecoration(
-            color: Colors.green[100],
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: AppTheme.primaryColor, width: 2),
-          ),
-          child: const Column(
-            children: [
-              Icon(Icons.videocam, color: AppTheme.primaryColor, size: 30),
-              SizedBox(height: 5),
-              Text("Rekaman Video"),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
+  /// =========================
+  /// BUTTON + VALIDASI
+  /// =========================
   Widget _buildKirimButton() {
     return SizedBox(
       width: double.infinity,
@@ -253,13 +329,43 @@ class _SetoranPageState extends State<SetoranPage> {
             return;
           }
 
+          final start = int.tryParse(_ayatStart.text) ?? 0;
+          final end = int.tryParse(_ayatEnd.text) ?? 0;
+
+          /// VALIDASI RANGE
+          if (start < 1 || end < 1 || start > _maxAyat || end > _maxAyat) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text("Ayat harus antara 1 - $_maxAyat"),
+              ),
+            );
+            return;
+          }
+
+          /// VALIDASI URUTAN
+          if (start > end) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    "Ayat awal tidak boleh lebih besar dari ayat akhir"),
+              ),
+            );
+            return;
+          }
+
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const RekamSetoranPage()),
+            MaterialPageRoute(
+              builder: (_) => RekamSetoranPage(
+                surah: _selectedSurah!,
+                ayatStart: start,
+                ayatEnd: end,
+              ),
+            ),
           );
         },
         child: const Text(
-          "Mulai Rekam Setoran",
+          "Kirim Setoran",
           style: TextStyle(fontSize: 16),
         ),
       ),
