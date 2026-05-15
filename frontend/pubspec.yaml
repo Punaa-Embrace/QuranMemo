@@ -15,6 +15,9 @@ dependencies:
   flutter:
     sdk: flutter
 
+  dio : ^5.3.2
+
+  font_awesome_flutter: ^10.4.0
   # Font Arabic
   arabic_font: ^0.0.9
   
