@@ -23,7 +23,6 @@ class _SuratPageState extends State<SuratPage> {
   void initState() {
     super.initState();
     _loadDaftarSurat();
-    _searchController.addListener(_filterSurat);
   }
 
   @override
@@ -53,8 +52,7 @@ class _SuratPageState extends State<SuratPage> {
     }
   }
 
-  void _filterSurat() {
-    final query = _searchController.text.toLowerCase();
+  void _filterSurat(String query) {
     setState(() {
       if (query.isEmpty) {
         _filteredSurat = _daftarSurat;
@@ -73,32 +71,35 @@ class _SuratPageState extends State<SuratPage> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
-          top: true,
+        top: true,
         child: Column(
           children: [
             CustomHeader(
-              title: "QuranMemo",
-              imagePath: "assets/images/self.jpg",
+              title: 'QuranMemo',
+              imagePath: 'assets/images/self.jpg',
               showSearch: true,
-              hintText: "Cari surat...",
+              hintText: 'Cari surat atau arti...',
               controller: _searchController,
-              onChanged: (value) => _filterSurat(),
+              onChanged: _filterSurat,
+              searchTextSize: 16,  
+              hintTextSize: 16, 
             ),
-            Expanded(
-              child: _isLoading
-                  ? _buildLoading()
-                  : _errorMessage.isNotEmpty
-                  ? _buildErrorWidget()
-                  : RefreshIndicator(
-                      onRefresh: _loadDaftarSurat, // Panggil fungsi yang sama
-                      color: AppTheme.primaryColor,
-                      backgroundColor: Colors.white,
-                      child: _buildSuratList(),
-                    ),
-            ),
+            Expanded(child: _buildBody()),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) return _buildLoading();
+    if (_errorMessage.isNotEmpty) return _buildErrorWidget();
+
+    return RefreshIndicator(
+      onRefresh: _loadDaftarSurat,
+      color: AppTheme.primaryColor,
+      backgroundColor: Colors.white,
+      child: _filteredSurat.isEmpty ? _buildEmptyState() : _buildSuratList(),
     );
   }
 
@@ -112,7 +113,7 @@ class _SuratPageState extends State<SuratPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            "Memuat daftar surat...",
+            'Memuat daftar surat...',
             style: TextStyle(color: Colors.grey[600]),
           ),
         ],
@@ -130,7 +131,7 @@ class _SuratPageState extends State<SuratPage> {
             Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
             const SizedBox(height: 16),
             Text(
-              "Gagal memuat data",
+              'Gagal memuat data',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -147,7 +148,7 @@ class _SuratPageState extends State<SuratPage> {
             ElevatedButton.icon(
               onPressed: _loadDaftarSurat,
               icon: const Icon(Icons.refresh),
-              label: const Text("Coba Lagi"),
+              label: const Text('Coba Lagi'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: AppTheme.white,
@@ -159,41 +160,44 @@ class _SuratPageState extends State<SuratPage> {
     );
   }
 
-  Widget _buildSuratList() {
-    if (_filteredSurat.isEmpty) {
-      return ListView(
-        children: [
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  "Surat tidak ditemukan",
-                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                ),
-              ],
-            ),
+  Widget _buildEmptyState() {
+    return ListView(
+      children: [
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 100),
+              Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                'Surat tidak ditemukan',
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Coba dengan kata kunci lain',
+                style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+              ),
+            ],
           ),
-        ],
-      );
-    }
+        ),
+      ],
+    );
+  }
 
+  Widget _buildSuratList() {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: _filteredSurat.length,
       itemBuilder: (context, index) {
         final surah = _filteredSurat[index];
-        return _buildSuratCard(surah, index + 1);
+        return _buildSuratCard(surah);
       },
     );
   }
 
-  Widget _buildSuratCard(Surah surah, int index) {
-    // Warna berbeda untuk surat Makkiyah dan Madaniyah
-    final bool isMakkiyah = surah.tempatTurun.toLowerCase() == 'mekah';
-
+  Widget _buildSuratCard(Surah surah) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 2,
@@ -211,9 +215,7 @@ class _SuratPageState extends State<SuratPage> {
           width: 45,
           height: 45,
           decoration: BoxDecoration(
-            color: isMakkiyah
-                ? Colors.purple.withOpacity(0.1)
-                : Colors.blue.withOpacity(0.1),
+            color: AppTheme.primaryColor.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
           child: Center(
@@ -222,7 +224,7 @@ class _SuratPageState extends State<SuratPage> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: isMakkiyah ? Colors.purple : Colors.blue,
+                color: AppTheme.primaryColor,
               ),
             ),
           ),
@@ -248,7 +250,6 @@ class _SuratPageState extends State<SuratPage> {
                 ],
               ),
             ),
-            // Nama Arab
             Text(
               surah.nama,
               style: const TextStyle(
@@ -263,34 +264,9 @@ class _SuratPageState extends State<SuratPage> {
           padding: const EdgeInsets.only(top: 4),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isMakkiyah
-                      ? Colors.purple.withOpacity(0.1)
-                      : Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  surah.tempatTurun,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: isMakkiyah ? Colors.purple : Colors.blue,
-                  ),
-                ),
-              ),
+              _buildChip(surah.tempatTurun),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  "${surah.jumlahAyat} Ayat",
-                  style: TextStyle(fontSize: 10, color: AppTheme.primaryColor),
-                ),
-              ),
+              _buildChip('${surah.jumlahAyat} Ayat'),
             ],
           ),
         ),
@@ -299,6 +275,20 @@ class _SuratPageState extends State<SuratPage> {
           size: 16,
           color: Colors.grey[400],
         ),
+      ),
+    );
+  }
+
+  Widget _buildChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, color: AppTheme.primaryColor),
       ),
     );
   }

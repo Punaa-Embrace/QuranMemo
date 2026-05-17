@@ -4,232 +4,231 @@ import 'package:path/path.dart';
 import '../models/surah_model.dart';
 
 class QuranDatabase {
-  static Database? _db;
-
+  // ============================================================================
+  // Konstanta
+  // ============================================================================
+  static const int _versiDB = 2;
+  static const String _namaDB = 'quran.db';
+  static const String _tabelSurah = 'surah';
+  static const String _tabelAyat = 'ayat';
+  
+  // ============================================================================
+  // Variabel Private
+  // ============================================================================
+  static Database? _database;
+  
+  // ============================================================================
+  // Akses Database
+  // ============================================================================
   static Future<Database> get db async {
-    if (_db != null) return _db!;
-    _db = await _initDB();
-    return _db!;
+    _database ??= await _initDB();
+    return _database!;
   }
-
+  
+  // ============================================================================
+  // Inisialisasi Database
+  // ============================================================================
   static Future<Database> _initDB() async {
-    final path = join(await getDatabasesPath(), 'quran.db');
-
+    final path = join(await getDatabasesPath(), _namaDB);
+    
     return await openDatabase(
       path,
-      version: 2,
-      onCreate: (db, version) async {
-        await db.execute('''
-        CREATE TABLE surah(
-          nomor INTEGER PRIMARY KEY,
-          nama TEXT,
-          namaLatin TEXT,
-          jumlahAyat INTEGER,
-          tempatTurun TEXT,
-          arti TEXT,
-          deskripsi TEXT,
-          audioFull TEXT
-        )
-        ''');
-
-        await db.execute('''
-        CREATE TABLE ayat(
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          surah_id INTEGER,
-          nomor INTEGER,
-          teksArab TEXT,
-          teksLatin TEXT,
-          teksIndonesia TEXT,
-          audio TEXT,
-          UNIQUE(surah_id, nomor)
-        )
-        ''');
-      },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion == 1 && newVersion == 2) {
-          print("🔄 Upgrade database: menghapus data ayat yang tidak lengkap");
-          await db.delete('ayat');
-        }
-      },
+      version: _versiDB,
+      onCreate: _buatTabel,
+      onUpgrade: _upgradeDB,
     );
   }
-
-  // ================= SURAH =================
-
+  
+  static Future<void> _buatTabel(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE $_tabelSurah(
+        nomor INTEGER PRIMARY KEY,
+        nama TEXT,
+        namaLatin TEXT,
+        jumlahAyat INTEGER,
+        tempatTurun TEXT,
+        arti TEXT,
+        deskripsi TEXT,
+        audioFull TEXT
+      )
+    ''');
+    
+    await db.execute('''
+      CREATE TABLE $_tabelAyat(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        surah_id INTEGER,
+        nomor INTEGER,
+        teksArab TEXT,
+        teksLatin TEXT,
+        teksIndonesia TEXT,
+        audio TEXT,
+        UNIQUE(surah_id, nomor)
+      )
+    ''');
+  }
+  
+  static Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion == 1 && newVersion == 2) {
+      await db.delete(_tabelAyat);
+    }
+  }
+  
+  // ============================================================================
+  // Operasi Surah
+  // ============================================================================
   static Future<void> insertSurah(Surah surah) async {
-    final database = await db;
-
-    await database.insert('surah', {
-      'nomor': surah.nomor,
-      'nama': surah.nama,
-      'namaLatin': surah.namaLatin,
-      'jumlahAyat': surah.jumlahAyat,
-      'tempatTurun': surah.tempatTurun,
-      'arti': surah.arti,
-      'deskripsi': surah.deskripsi,
-      'audioFull': jsonEncode(surah.audioFull),
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    final db = await QuranDatabase.db;
+    
+    await db.insert(
+      _tabelSurah,
+      {
+        'nomor': surah.nomor,
+        'nama': surah.nama,
+        'namaLatin': surah.namaLatin,
+        'jumlahAyat': surah.jumlahAyat,
+        'tempatTurun': surah.tempatTurun,
+        'arti': surah.arti,
+        'deskripsi': surah.deskripsi,
+        'audioFull': jsonEncode(surah.audioFull),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
-
+  
   static Future<List<Surah>> getAllSurah() async {
-    final database = await db;
-    final result = await database.query('surah');
-
-    return result.map((e) {
-      return Surah(
-        nomor: e['nomor'] as int,
-        nama: e['nama'] as String,
-        namaLatin: e['namaLatin'] as String,
-        jumlahAyat: e['jumlahAyat'] as int,
-        tempatTurun: e['tempatTurun'] as String,
-        arti: e['arti'] as String,
-        deskripsi: e['deskripsi'] as String,
-        audioFull: Map<String, String>.from(
-          jsonDecode(e['audioFull'] as String),
-        ),
-      );
-    }).toList();
+    final db = await QuranDatabase.db;
+    final hasil = await db.query(_tabelSurah);
+    return hasil.map(_mapToSurah).toList();
   }
-
+  
   static Future<Surah?> getSurahById(int id) async {
-    final database = await db;
-    final result = await database.query(
-      'surah',
+    final db = await QuranDatabase.db;
+    final hasil = await db.query(
+      _tabelSurah,
       where: 'nomor = ?',
       whereArgs: [id],
     );
-
-    if (result.isEmpty) return null;
-
-    final e = result.first;
-
+    
+    return hasil.isEmpty ? null : _mapToSurah(hasil.first);
+  }
+  
+  static Surah _mapToSurah(Map<String, dynamic> map) {
     return Surah(
-      nomor: e['nomor'] as int,
-      nama: e['nama'] as String,
-      namaLatin: e['namaLatin'] as String,
-      jumlahAyat: e['jumlahAyat'] as int,
-      tempatTurun: e['tempatTurun'] as String,
-      arti: e['arti'] as String,
-      deskripsi: e['deskripsi'] as String,
-      audioFull: Map<String, String>.from(jsonDecode(e['audioFull'] as String)),
+      nomor: map['nomor'] as int,
+      nama: map['nama'] as String,
+      namaLatin: map['namaLatin'] as String,
+      jumlahAyat: map['jumlahAyat'] as int,
+      tempatTurun: map['tempatTurun'] as String,
+      arti: map['arti'] as String,
+      deskripsi: map['deskripsi'] as String,
+      audioFull: Map<String, String>.from(jsonDecode(map['audioFull'] as String)),
     );
   }
-
-  static Future<bool> isAyatLengkap(int surahId, int expectedJumlahAyat) async {
-    final ayat = await getAyatBySurah(surahId);
-    return ayat.length == expectedJumlahAyat;
-  }
-
-  static Future<void> deleteAyatBySurah(int surahId) async {
-    final database = await db;
-    await database.delete('ayat', where: 'surah_id = ?', whereArgs: [surahId]);
-    print("🗑️ Menghapus ayat untuk surah $surahId");
-  }
-
-  // ================= AYAT =================
-
+  
+  // ============================================================================
+  // Operasi Ayat
+  // ============================================================================
   static Future<void> insertAyat(int surahId, List<Ayat> ayatList) async {
-    final database = await db;
-
-    print("🔍 [DEBUG] Akan menyimpan ${ayatList.length} ayat untuk surah $surahId");
-    if (ayatList.isNotEmpty) {
-      print("🔍 [DEBUG] Ayat pertama: nomor=${ayatList.first.nomor}");
-      print("🔍 [DEBUG] Ayat terakhir: nomor=${ayatList.last.nomor}");
-    }
-
-    await deleteAyatBySurah(surahId);
-
-    final batch = database.batch();
-    int insertedCount = 0;
-
+    if (ayatList.isEmpty) return;
+    
+    final db = await QuranDatabase.db;
+    
+    await _hapusAyatBySurah(db, surahId);
+    
+    final batch = db.batch();
     for (var ayat in ayatList) {
-      batch.insert('ayat', {
-        'surah_id': surahId,
-        'nomor': ayat.nomor,
-        'teksArab': ayat.teksArab,
-        'teksLatin': ayat.teksLatin,
-        'teksIndonesia': ayat.teksIndonesia,
-        'audio': jsonEncode(ayat.audio),
-      });
-      insertedCount++;
+      batch.insert(_tabelAyat, _ayatToMap(surahId, ayat));
     }
-
-    await batch.commit(noResult: true);
-    print("✅ BERHASIL menyimpan $insertedCount ayat untuk surah $surahId");
-
-    // VERIFIKASI: cek langsung setelah insert
-    final verify = await database.query(
-      'ayat',
-      where: 'surah_id = ?',
-      whereArgs: [surahId],
-    );
-    print("🔍 [VERIFIKASI] Setelah insert, database berisi ${verify.length} ayat untuk surah $surahId");
+    
+    try {
+      await batch.commit(noResult: true);
+    } catch (e) {
+      // Fallback: insert satu per satu
+      for (var ayat in ayatList) {
+        await db.insert(
+          _tabelAyat,
+          _ayatToMap(surahId, ayat),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    }
   }
-
+  
+  static Map<String, dynamic> _ayatToMap(int surahId, Ayat ayat) {
+    return {
+      'surah_id': surahId,
+      'nomor': ayat.nomor,
+      'teksArab': ayat.teksArab,
+      'teksLatin': ayat.teksLatin,
+      'teksIndonesia': ayat.teksIndonesia,
+      'audio': jsonEncode(ayat.audio),
+    };
+  }
+  
   static Future<List<Ayat>> getAyatBySurah(int surahId) async {
-    final database = await db;
-
-    final result = await database.query(
-      'ayat',
+    final db = await QuranDatabase.db;
+    
+    final hasil = await db.query(
+      _tabelAyat,
       where: 'surah_id = ?',
       whereArgs: [surahId],
       orderBy: 'nomor ASC',
     );
-
-    print("📖 Mengambil ${result.length} ayat untuk surah $surahId");
-
-    List<Ayat> ayatList = [];
-
-    for (var e in result) {
+    
+    final List<Ayat> ayatList = [];
+    for (var item in hasil) {
       try {
-        final audioMap = Map<String, String>.from(jsonDecode(e['audio'] as String));
-        
         ayatList.add(Ayat(
-          nomor: e['nomor'] as int,
-          teksArab: e['teksArab'] as String,
-          teksLatin: e['teksLatin'] as String,
-          teksIndonesia: e['teksIndonesia'] as String,
-          audio: audioMap,
+          nomor: item['nomor'] as int,
+          teksArab: item['teksArab'] as String,
+          teksLatin: item['teksLatin'] as String,
+          teksIndonesia: item['teksIndonesia'] as String,
+          audio: Map<String, String>.from(jsonDecode(item['audio'] as String)),
         ));
-      } catch (err) {
-        print("❌ Gagal decode audio untuk surah $surahId, ayat ${e['nomor']}: $err");
+      } catch (e) {
+        // Skip jika gagal decode
       }
     }
-
-    print("📖 Total ayat yang berhasil di-decode: ${ayatList.length}");
+    
     return ayatList;
   }
-
-  static Future<void> resetAllData() async {
-    final database = await db;
-    await database.delete('ayat');
-    await database.delete('surah');
-    print("🗑️ Semua data dihapus");
-  }
-
-  // ================= DEBUG =================
-
-  static Future<void> debugPrintAllSurah() async {
-    final database = await db;
-    final result = await database.query('surah');
-    print("\n========== DAFTAR SURAT ==========");
-    for (var row in result) {
-      print("${row['nomor']}. ${row['namaLatin']} - ${row['jumlahAyat']} ayat");
-    }
-    print("==================================\n");
-  }
-
-  static Future<void> debugPrintAyat(int surahId) async {
-    final database = await db;
-    final result = await database.query(
-      'ayat',
+  
+  static Future<void> _hapusAyatBySurah(Database db, int surahId) async {
+    await db.delete(
+      _tabelAyat,
       where: 'surah_id = ?',
       whereArgs: [surahId],
     );
-    print("\n========== AYAT SURAT $surahId ==========");
-    for (var row in result) {
-      print("Ayat ${row['nomor']}: ${row['teksArab']}");
+  }
+  
+  static Future<void> deleteAyatBySurah(int surahId) async {
+    final db = await QuranDatabase.db;
+    await _hapusAyatBySurah(db, surahId);
+  }
+  
+  // ============================================================================
+  // Utility
+  // ============================================================================
+  static Future<bool> isAyatLengkap(int surahId, int expectedJumlahAyat) async {
+    final ayat = await getAyatBySurah(surahId);
+    return ayat.length == expectedJumlahAyat;
+  }
+  
+  static Future<void> resetAllData() async {
+    final db = await QuranDatabase.db;
+    await db.delete(_tabelAyat);
+    await db.delete(_tabelSurah);
+  }
+  
+  // ============================================================================
+  // Debug 
+  // ============================================================================
+  static Future<void> debugPrintAllSurah() async {
+    final surahList = await getAllSurah();
+    print('\n========== DATA SURAH ==========');
+    for (var surah in surahList) {
+      print('${surah.nomor}. ${surah.namaLatin} - ${surah.jumlahAyat} ayat');
     }
-    print("========================================\n");
+    print('================================\n');
   }
 }

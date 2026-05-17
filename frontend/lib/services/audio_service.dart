@@ -1,19 +1,28 @@
 import 'dart:io';
-import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class AudioService {
+  // ============================================================================
+  // Private Constants
+  // ============================================================================
+  static const Duration _timeout = Duration(seconds: 30);
+  
+  // ============================================================================
+  // Private Static Instances
+  // ============================================================================
   static final AudioPlayer _player = AudioPlayer();
   static final Dio _dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: _timeout,
+      receiveTimeout: _timeout,
     ),
   );
-
-  // ==================== STATE ====================
+  
+  // ============================================================================
+  // Public State
+  // ============================================================================
   static bool isPlaying = false;
   static bool isLoading = false;
   static bool isDownloading = false;
@@ -25,83 +34,95 @@ class AudioService {
   static Duration totalDuration = Duration.zero;
   static String? errorMessage;
   
-  // 🔥 Callback untuk auto-next (mengirimkan ayat yang baru selesai)
+  // ============================================================================
+  // Callbacks
+  // ============================================================================
   static void Function(int completedAyat)? onAyatComplete;
   
+  // ============================================================================
+  // Private Members
+  // ============================================================================
   static final List<Function()> _listeners = [];
   
-  static void addListener(Function() listener) {
-    _listeners.add(listener);
-  }
+  // ============================================================================
+  // Public Methods - Listeners
+  // ============================================================================
+  static void addListener(Function() listener) => _listeners.add(listener);
   
-  static void removeListener(Function() listener) {
-    _listeners.remove(listener);
-  }
-  
-  static void _notifyListeners() {
-    for (var listener in _listeners) {
-      listener();
-    }
-  }
+  static void removeListener(Function() listener) => _listeners.remove(listener);
   
   static void setOnAyatComplete(void Function(int ayat) callback) {
     onAyatComplete = callback;
   }
   
-  // ==================== INIT ====================
+  // ============================================================================
+  // Initialization
+  // ============================================================================
   static void init() {
+    _listenToPlayerState();
+    _listenToDuration();
+    _listenToPosition();
+    _listenToCompletion();
+  }
+  
+  static void _listenToPlayerState() {
     _player.onPlayerStateChanged.listen((state) {
       isPlaying = state == PlayerState.playing;
+      
       if (state == PlayerState.stopped) {
         isLoading = false;
         isDownloading = false;
-      }
-      _notifyListeners();
-    });
-    
-    _player.onDurationChanged.listen((d) {
-      totalDuration = d;
-      _notifyListeners();
-    });
-    
-    _player.onPositionChanged.listen((p) {
-      currentPosition = p;
-      _notifyListeners();
-    });
-    
-    // 🔥🔥🔥 AUTO-NEXT CORE LOGIC 🔥🔥🔥
-    _player.onPlayerComplete.listen((_) {
-      print("🎵 [AudioService] ===== AUDIO SELESAI =====");
-      print("🎵 isPlayingFull: $isPlayingFull");
-      print("🎵 currentAyat sebelum reset: $currentAyat");
-      print("🎵 currentSurah: $currentSurah");
-      
-      if (isPlayingFull) {
-        print("🎵 Full surat selesai, stop");
-        stop();
-        return;
-      }
-      
-      // Simpan data sebelum direset
-      final completedAyat = currentAyat;
-      final completedSurah = currentSurah;
-      
-      // Reset playing state
-      isPlaying = false;
-      
-      // 🔥 Panggil callback untuk auto-next
-      if (completedAyat != null && onAyatComplete != null) {
-        print("🎵 Memanggil auto-next callback untuk ayat $completedAyat");
-        onAyatComplete!(completedAyat);
-      } else {
-        print("❌ Tidak ada callback atau completedAyat null");
       }
       
       _notifyListeners();
     });
   }
   
-  // ==================== PLAY AYAT ====================
+  static void _listenToDuration() {
+    _player.onDurationChanged.listen((duration) {
+      totalDuration = duration;
+      _notifyListeners();
+    });
+  }
+  
+  static void _listenToPosition() {
+    _player.onPositionChanged.listen((position) {
+      currentPosition = position;
+      _notifyListeners();
+    });
+  }
+  
+  static void _listenToCompletion() {
+    _player.onPlayerComplete.listen((_) {
+      _handleAudioCompletion();
+    });
+  }
+  
+  static void _handleAudioCompletion() {
+    print("[AudioService] Audio completed - Playing Full: $isPlayingFull");
+    
+    if (isPlayingFull) {
+      stop();
+      return;
+    }
+    
+    final completedAyat = currentAyat;
+    
+    // Reset playing state
+    isPlaying = false;
+    
+    // Trigger auto-next callback
+    if (completedAyat != null && onAyatComplete != null) {
+      print("Auto-next triggered for ayat: $completedAyat");
+      onAyatComplete!(completedAyat);
+    }
+    
+    _notifyListeners();
+  }
+  
+  // ============================================================================
+  // Playback Methods
+  // ============================================================================
   static Future<void> playAyat({
     required String url,
     required int surahId,
@@ -110,133 +131,129 @@ class AudioService {
   }) async {
     errorMessage = null;
     
-    final path = await getAudioPath(surahId, ayat, qari);
-    final isFileExist = await File(path).existsSync();
-    
-    print("🎵 playAyat dipanggil: surah=$surahId, ayat=$ayat, fileExist=$isFileExist");
+    final audioPath = await _getAyatPath(surahId, ayat, qari);
+    final isFileExist = await File(audioPath).exists();
     
     if (!isFileExist) {
-      isLoading = true;
-      isDownloading = true;
-      downloadProgress = 0.0;
-      _notifyListeners();
-      
-      try {
-        await _downloadFile(url: url, savePath: path, label: "Ayat $ayat");
-        isDownloading = false;
-        _notifyListeners();
-      } catch (e) {
-        isLoading = false;
-        isDownloading = false;
-        errorMessage = "Gagal download ayat $ayat";
-        _notifyListeners();
-        throw Exception(errorMessage);
-      }
+      await _downloadWithLoading(url, audioPath, "Ayat $ayat");
     }
     
-    try {
-      await _player.stop();
-      await _player.play(DeviceFileSource(path));
-      
-      isPlayingFull = false;
-      currentAyat = ayat;
-      currentSurah = surahId;
-      isPlaying = true;
-      isLoading = false;
-      
-      print("✅ Play ayat $ayat dimulai");
-      _notifyListeners();
-      
-    } catch (e) {
-      isLoading = false;
-      errorMessage = "Gagal memutar audio";
-      _notifyListeners();
-      throw Exception(errorMessage);
-    }
+    await _playAudio(audioPath);
+    
+    _setPlaybackState(
+      isPlayingFull: false,
+      currentAyat: ayat,
+      currentSurah: surahId,
+    );
+    
+    print("Playing ayat: $ayat");
   }
   
-  // ==================== PLAY FULL SURAT ====================
   static Future<void> playFullSurah({
     required String url,
     required int surahId,
     required String qari,
   }) async {
     errorMessage = null;
-    final path = await getFullSurahPath(surahId, qari);
-    final isFileExist = await File(path).existsSync();
+    
+    final audioPath = await _getFullSurahPath(surahId, qari);
+    final isFileExist = await File(audioPath).exists();
     
     if (!isFileExist) {
-      isLoading = true;
-      isDownloading = true;
-      downloadProgress = 0.0;
-      isPlayingFull = true;
-      _notifyListeners();
-      
-      try {
-        await _downloadFile(url: url, savePath: path, label: "Full Surat");
-        isDownloading = false;
-        _notifyListeners();
-      } catch (e) {
-        isLoading = false;
-        isDownloading = false;
-        isPlayingFull = false;
-        errorMessage = "Gagal download full surat";
-        _notifyListeners();
-        throw Exception(errorMessage);
-      }
+      await _downloadWithLoading(url, audioPath, "Full Surah");
     }
     
+    await _playAudio(audioPath);
+    
+    _setPlaybackState(
+      isPlayingFull: true,
+      currentAyat: null,
+      currentSurah: surahId,
+    );
+  }
+  
+  static Future<void> _downloadWithLoading(
+    String url,
+    String savePath,
+    String label,
+  ) async {
+    isLoading = true;
+    isDownloading = true;
+    downloadProgress = 0.0;
+    _notifyListeners();
+    
     try {
-      await _player.stop();
-      await _player.play(DeviceFileSource(path));
-      
-      isPlayingFull = true;
-      currentAyat = null;
-      isPlaying = true;
-      isLoading = false;
+      await _downloadFile(url: url, savePath: savePath, label: label);
+      isDownloading = false;
       _notifyListeners();
-      
     } catch (e) {
       isLoading = false;
-      isPlayingFull = false;
-      errorMessage = "Gagal memutar full surat";
+      isDownloading = false;
+      errorMessage = "Failed to download $label";
       _notifyListeners();
       throw Exception(errorMessage);
     }
   }
   
-  // ==================== FILE PATH ====================
+  static Future<void> _playAudio(String path) async {
+    try {
+      await _player.stop();
+      await _player.play(DeviceFileSource(path));
+      
+      isPlaying = true;
+      isLoading = false;
+      _notifyListeners();
+    } catch (e) {
+      isLoading = false;
+      errorMessage = "Failed to play audio";
+      _notifyListeners();
+      throw Exception(errorMessage);
+    }
+  }
+  
+  static void _setPlaybackState({
+    required bool isPlayingFull,
+    required int? currentAyat,
+    required int? currentSurah,
+  }) {
+    AudioService.isPlayingFull = isPlayingFull;
+    AudioService.currentAyat = currentAyat;
+    AudioService.currentSurah = currentSurah;
+    _notifyListeners();
+  }
+  
+  // ============================================================================
+  // File Management
+  // ============================================================================
   static Future<String> _getBasePath() async {
-    final dir = await getApplicationDocumentsDirectory();
-    return dir.path;
+    final directory = await getApplicationDocumentsDirectory();
+    return directory.path;
   }
   
-  static Future<String> getAudioPath(int surahId, int ayat, String qari) async {
-    final base = await _getBasePath();
-    return "$base/surah_${surahId}_ayat_${ayat}_$qari.mp3";
+  static Future<String> _getAyatPath(int surahId, int ayat, String qari) async {
+    final basePath = await _getBasePath();
+    return "$basePath/surah_${surahId}_ayat_${ayat}_$qari.mp3";
   }
   
-  static Future<String> getFullSurahPath(int surahId, String qari) async {
-    final base = await _getBasePath();
-    return "$base/surah_${surahId}_full_$qari.mp3";
+  static Future<String> _getFullSurahPath(int surahId, String qari) async {
+    final basePath = await _getBasePath();
+    return "$basePath/surah_${surahId}_full_$qari.mp3";
   }
   
-  // ==================== DOWNLOAD ====================
   static Future<String> _downloadFile({
     required String url,
     required String savePath,
     required String label,
   }) async {
-    final tmpPath = "$savePath.tmp";
-    final tmpFile = File(tmpPath);
-    if (await tmpFile.exists()) {
-      await tmpFile.delete();
-    }
+    final tempPath = "$savePath.tmp";
+    final tempFile = File(tempPath);
+    
+    await _cleanupTempFile(tempFile);
     
     try {
       await _dio.download(
         url,
-        tmpPath,
+        tempPath,
         onReceiveProgress: (received, total) {
           if (total > 0) {
             downloadProgress = received / total;
@@ -245,17 +262,23 @@ class AudioService {
         },
       );
       
-      await File(tmpPath).rename(savePath);
+      await tempFile.rename(savePath);
       return savePath;
     } catch (e) {
-      if (await File(tmpPath).exists()) {
-        await File(tmpPath).delete();
-      }
-      throw Exception("Download gagal: $e");
+      await _cleanupTempFile(tempFile);
+      throw Exception("Download failed: $e");
     }
   }
   
-  // ==================== CONTROL ====================
+  static Future<void> _cleanupTempFile(File tempFile) async {
+    if (await tempFile.exists()) {
+      await tempFile.delete();
+    }
+  }
+  
+  // ============================================================================
+  // Control Methods
+  // ============================================================================
   static Future<void> pause() async {
     await _player.pause();
     _notifyListeners();
@@ -268,6 +291,18 @@ class AudioService {
   
   static Future<void> stop() async {
     await _player.stop();
+    _resetAllState();
+    _notifyListeners();
+  }
+  
+  static Future<void> seek(Duration position) async {
+    await _player.seek(position);
+    _notifyListeners();
+  }
+  
+  static void resetState() => stop();
+  
+  static void _resetAllState() {
     isPlaying = false;
     isLoading = false;
     isDownloading = false;
@@ -277,22 +312,22 @@ class AudioService {
     totalDuration = Duration.zero;
     downloadProgress = 0.0;
     errorMessage = null;
-    _notifyListeners();
   }
   
-  static Future<void> seek(Duration position) async {
-    await _player.seek(position);
-    _notifyListeners();
+  // ============================================================================
+  // Helper Methods
+  // ============================================================================
+  static void _notifyListeners() {
+    for (final listener in _listeners) {
+      listener();
+    }
   }
   
-  static void resetState() {
-    stop();
-  }
-  
-  static String formatDuration(Duration d) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(d.inMinutes.remainder(60));
-    final seconds = twoDigits(d.inSeconds.remainder(60));
+  static String formatDuration(Duration duration) {
+    final minutes = _formatNumber(duration.inMinutes.remainder(60));
+    final seconds = _formatNumber(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
   }
+  
+  static String _formatNumber(int number) => number.toString().padLeft(2, '0');
 }

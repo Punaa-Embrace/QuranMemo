@@ -5,29 +5,31 @@ import '../page/akun_page.dart';
 class CustomHeader extends StatelessWidget {
   final String title;
   final String? imagePath;
-
-  /// SEARCH CONFIG
   final bool showAvatar;
   final bool showSearch;
   final String hintText;
   final TextEditingController? controller;
-  final Function(String)? onChanged;
-  
-  /// BACK BUTTON CONFIG
+  final ValueChanged<String>? onChanged;
   final bool showBackButton;
   final VoidCallback? onBackPressed;
+  
+  // 🔥 TAMBAHKAN PARAMETER UNTUK MENGATUR UKURAN
+  final double searchTextSize;
+  final double hintTextSize;
 
   const CustomHeader({
     super.key,
     required this.title,
     this.imagePath,
     this.showSearch = false,
-    this.hintText = "Cari...",
+    this.hintText = 'Cari...',
     this.controller,
     this.onChanged,
     this.showAvatar = true,
     this.showBackButton = false,
     this.onBackPressed,
+    this.searchTextSize = 16,    // 🔥 DEFAULT 16
+    this.hintTextSize = 14,       // 🔥 DEFAULT 14
   });
 
   @override
@@ -37,131 +39,136 @@ class CustomHeader extends StatelessWidget {
         Stack(
           clipBehavior: Clip.none,
           children: [
-            /// HEADER
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                children: [
-                  /// BACK BUTTON (jika ditampilkan)
-                  if (showBackButton) ...[
-                    GestureDetector(
-                      onTap: onBackPressed ?? () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  
-                  /// LOGO + TEXT
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.menu_book_rounded,
-                        color: Colors.white,
-                        size: 26,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const Spacer(),
-
-                  /// AVATAR WITH NAVIGATION
-                  if (showAvatar)
-                    GestureDetector(
-                      onTap: () {
-                        // Navigasi ke AkunPage
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AkunPage(),
-                          ),
-                        );
-                      },
-                      child: CircleAvatar(
-                        radius: 20,
-                        backgroundColor: Colors.white,
-                        backgroundImage: imagePath != null
-                            ? AssetImage(imagePath!)
-                            : null,
-                        child: imagePath == null
-                            ? const Icon(Icons.person, color: Colors.grey)
-                            : null,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            /// SEARCH BAR (FLOATING)
-            if (showSearch)
-              Positioned(
-                left: 24,
-                right: 24,
-                bottom: -65,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 12,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: controller,
-                    onChanged: onChanged,
-                    decoration: InputDecoration(
-                      hintText: hintText,
-                      border: InputBorder.none,
-                      icon: Icon(Icons.search, color: AppTheme.primaryColor),
-                      suffixIcon:
-                          controller != null && controller!.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () {
-                                controller!.clear();
-                                if (onChanged != null) onChanged!("");
-                              },
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-              ),
+            _buildHeader(context),
+            if (showSearch) _buildSearchBar(),
           ],
         ),
-
-        /// SPACING BAWAH BIAR GA KETIMPA LIST
         SizedBox(height: showSearch ? 70 : 10),
       ],
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          if (showBackButton) _buildBackButton(context),
+          _buildLogo(),
+          const Spacer(),
+          if (showAvatar) _buildAvatar(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackButton(BuildContext context) {
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: onBackPressed ?? () => Navigator.pop(context),
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+          ),
+        ),
+        const SizedBox(width: 12),
+      ],
+    );
+  }
+
+  Widget _buildLogo() {
+    return Row(
+      children: [
+        const Icon(Icons.menu_book_rounded, color: Colors.white, size: 26),
+        const SizedBox(width: 5),
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAvatar(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AkunPage()),
+        );
+      },
+      child: CircleAvatar(
+        radius: 20,
+        backgroundColor: Colors.white,
+        backgroundImage: imagePath != null ? AssetImage(imagePath!) : null,
+        child: imagePath == null ? const Icon(Icons.person, color: Colors.grey) : null,
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Positioned(
+      left: 24,
+      right: 24,
+      bottom: -65,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: TextField(
+          controller: controller,
+          onChanged: onChanged,
+          style: TextStyle(
+            fontSize: searchTextSize,  // 🔥 PAKAI PARAMETER
+            fontWeight: FontWeight.normal,
+          ),
+          decoration: InputDecoration(
+            hintText: hintText,
+            hintStyle: TextStyle(
+              fontSize: hintTextSize,   // 🔥 PAKAI PARAMETER
+              color: Colors.grey[400],
+            ),
+            border: InputBorder.none,
+            icon: Icon(Icons.search, color: AppTheme.primaryColor, size: 20),
+            suffixIcon: _buildClearButton(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildClearButton() {
+    if (controller == null || controller!.text.isEmpty) return null;
+    
+    return IconButton(
+      icon: const Icon(Icons.clear, size: 18),
+      onPressed: () {
+        controller!.clear();
+        if (onChanged != null) onChanged!('');
+      },
     );
   }
 }

@@ -11,9 +11,9 @@ class SurahResponse {
 
   factory SurahResponse.fromJson(Map<String, dynamic> json) {
     return SurahResponse(
-      code: json['code'] ?? 0, // Tambah null check
+      code: json['code'] ?? 0,
       message: json['message'] ?? '',
-      data: (json['data'] as List? ?? []) // Tambah null check
+      data: (json['data'] as List? ?? [])
           .map((item) => Surah.fromJson(item))
           .toList(),
     );
@@ -103,8 +103,11 @@ class Ayat {
   });
 
   factory Ayat.fromJson(Map<String, dynamic> json) {
+    // 🔥 PERBAIKAN: API pakai "nomorAyat", BUKAN "nomor"
+    final nomorAyat = json['nomorAyat'] as int? ?? 0;
+    
     return Ayat(
-      nomor: json['nomor'] ?? 0,
+      nomor: nomorAyat,
       teksArab: json['teksArab'] ?? '',
       teksLatin: json['teksLatin'] ?? '',
       teksIndonesia: json['teksIndonesia'] ?? '',

@@ -3,7 +3,6 @@ import '../theme/app_theme.dart';
 import '../services/quran_service.dart';
 import '../services/audio_service.dart';
 import '../models/surah_model.dart';
-import '../services/quran_database.dart';
 
 class DetailSuratPage extends StatefulWidget {
   final int nomorSurat;
@@ -20,7 +19,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
   String _selectedQari = '05';
   bool _showTranslation = true;
   bool _showLatin = true;
-  bool _isAudioLoading = false;
 
   @override
   void initState() {
@@ -59,13 +57,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
       _errorMessage = '';
     });
 
-    // DEBUG: CEK ISI DATABASE SEBELUM LOAD
-    final cekSurah = await QuranDatabase.getSurahById(widget.nomorSurat);
-    final cekAyat = await QuranDatabase.getAyatBySurah(widget.nomorSurat);
-    print("🔍 DEBUG: Surah ${widget.nomorSurat} di database:");
-    print("   - Info surah: ${cekSurah != null ? 'ADA' : 'KOSONG'}");
-    print("   - Jumlah ayat: ${cekAyat.length}");
-
     try {
       final detail = await QuranService.getDetailSurat(widget.nomorSurat);
       setState(() {
@@ -103,10 +94,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
       return;
     }
 
-    setState(() {
-      _isAudioLoading = true;
-    });
-
     try {
       await AudioService.playAyat(
         url: url,
@@ -118,12 +105,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal memutar audio: $e')),
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isAudioLoading = false;
-        });
-      }
     }
   }
 
@@ -142,10 +123,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
       return;
     }
 
-    setState(() {
-      _isAudioLoading = true;
-    });
-
     try {
       await AudioService.playFullSurah(
         url: url,
@@ -156,12 +133,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal memutar audio: $e')),
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isAudioLoading = false;
-        });
-      }
     }
   }
 
@@ -776,7 +747,7 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              ...QuranService.qariList.map((qari) {
+              ...QuranService.daftarQari.map((qari) {
                 return RadioListTile<String>(
                   title: Text(qari['name']!),
                   value: qari['key']!,
