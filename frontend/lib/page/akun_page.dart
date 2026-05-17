@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/constants.dart';
-import 'riwayat_page.dart';
-
+import '../components/custom_header.dart';
+import 'main_page.dart';
+import '../components/edit_profile_page.dart';     
+import '../components/ganti_password_page.dart';    
+import '../components/tentang_page.dart';  
+import '../components/bantuan_page.dart';          
 class AkunPage extends StatelessWidget {
   const AkunPage({Key? key}) : super(key: key);
 
@@ -13,60 +17,26 @@ class AkunPage extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(context),
-            _buildProfileSection(),
+            CustomHeader(
+              title: "Akun Saya",
+              showAvatar: false,
+              showBackButton: true,
+              onBackPressed: () {
+                Navigator.pop(context);
+              },
+            ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  _buildMenuItem(
-                    icon: Icons.person_outline,
-                    title: "Ubah Profil",
-                    onTap: () {},
-                  ),
-                  _buildMenuItem(
-                    icon: Icons.lock_outline,
-                    title: "Ganti Kata Sandi",
-                    onTap: () {},
-                  ),
-                  _buildMenuItem(
-                    icon: Icons.history,
-                    title: "Riwayat Setoran",
-                    onTap: () {
-                      // Navigasi ke halaman riwayat
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RiwayatPage(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildMenuItem(
-                    icon: Icons.info_outline,
-                    title: "Info Akun",
-                    onTap: () {},
-                  ),
-                  _buildMenuItem(
-                    icon: Icons.help_outline,
-                    title: "Bantuan",
-                    onTap: () {},
-                  ),
-                  _buildMenuItem(
-                    icon: Icons.info_outline,
-                    title: "Tentang Aplikasi",
-                    onTap: () {},
-                  ),
-                  const Divider(),
-                  _buildMenuItem(
-                    icon: Icons.logout,
-                    title: "Keluar",
-                    color: Colors.red,
-                    onTap: () {
-                      _showLogoutDialog(context);
-                    },
-                  ),
-                ],
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    _buildProfileCard(context),  // Kirim context
+                    const SizedBox(height: 10),
+                    _buildMenuCard(context),
+                    const SizedBox(height: 20),
+                    _buildLogoutButton(context),
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
           ],
@@ -75,91 +45,84 @@ class AkunPage extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: AppTheme.primaryColor,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppTheme.white),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-              ),
-              const Text(
-                "Akun Saya",
-                style: TextStyle(
-                  color: AppTheme.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileSection() {
+  /// =========================
+  /// PROFILE CARD
+  /// =========================
+  Widget _buildProfileCard(BuildContext context) {
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+          )
+        ],
       ),
       child: Row(
         children: [
-          // PERBAIKAN: Hapus 'const' karena menggunakan image provider dinamis
+          /// AVATAR
           CircleAvatar(
-            radius: 40,
+            radius: 35,
             backgroundImage: Constants.getUserImage(),
-            backgroundColor: Colors.grey[200],
-            onBackgroundImageError: (exception, stackTrace) {
-              debugPrint('Error loading image: $exception');
-            },
           ),
-          const SizedBox(width: 20),
-          Expanded( // Tambah Expanded agar tidak overflow
+          const SizedBox(width: 15),
+          /// INFO
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   Constants.userName,
                   style: const TextStyle(
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
-                Text(
-                  Constants.userEmail,
-                  style: TextStyle(color: Colors.grey[600]),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
                     color: Colors.green[100],
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
-                    "Santri Aktif",
-                    style: TextStyle(color: Colors.green, fontSize: 12),
+                    "Santri",
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
+                const SizedBox(height: 5),
+                Text(
+                  Constants.userEmail,
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
               ],
+            ),
+          ),
+          /// EDIT BUTTON - Navigasi ke Edit Profile
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const EditProfilePage(),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.edit, color: AppTheme.primaryColor),
             ),
           ),
         ],
@@ -167,20 +130,93 @@ class AkunPage extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItem({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    Color? color,
-  }) {
-    return ListTile(
-      leading: Icon(icon, color: color ?? AppTheme.primaryColor),
-      title: Text(
-        title,
-        style: TextStyle(color: color ?? AppTheme.black),
+  /// =========================
+  /// MENU CARD
+  /// =========================
+  Widget _buildMenuCard(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
       ),
-      trailing: Icon(Icons.arrow_forward_ios, size: 16, color: color ?? Colors.grey),
+      child: Column(
+        children: [
+          _menuItem(Icons.lock, "Ganti Kata Sandi", context, onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const GantiPasswordPage(),
+              ),
+            );
+          }),
+          _menuItem(Icons.history, "Riwayat Setoran", context, onTap: () {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MainPage(initialIndex: 3),
+              ),
+              (route) => false,
+            );
+          }),
+          _menuItem(Icons.info, "Tentang Aplikasi", context, onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TentangAplikasiPage(),
+              ),
+            );
+          }),
+          _menuItem(Icons.help, "Bantuan", context, onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const BantuanPage(),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _menuItem(IconData icon, String title, BuildContext context, {VoidCallback? onTap}) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: AppTheme.primaryColor),
+      ),
+      title: Text(title),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: onTap,
+    );
+  }
+
+  /// =========================
+  /// LOGOUT BUTTON
+  /// =========================
+  Widget _buildLogoutButton(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      width: double.infinity,
+      height: 50,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.red),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: TextButton.icon(
+        onPressed: () => _showLogoutDialog(context),
+        icon: const Icon(Icons.logout, color: Colors.red),
+        label: const Text(
+          "Keluar",
+          style: TextStyle(color: Colors.red),
+        ),
+      ),
     );
   }
 
@@ -190,12 +226,10 @@ class AkunPage extends StatelessWidget {
       builder: (context) {
         return AlertDialog(
           title: const Text("Konfirmasi Keluar"),
-          content: const Text("Apakah Anda yakin ingin keluar dari aplikasi?"),
+          content: const Text("Yakin ingin keluar?"),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
+              onPressed: () => Navigator.pop(context),
               child: const Text("Batal"),
             ),
             FilledButton(
@@ -204,8 +238,6 @@ class AkunPage extends StatelessWidget {
               ),
               onPressed: () {
                 Navigator.pop(context);
-                // Logout logic here
-                // Misalnya kembali ke halaman login
                 Navigator.pushReplacementNamed(context, '/login');
               },
               child: const Text("Keluar"),
