@@ -30,7 +30,7 @@ dependencies:
   cached_network_image: ^3.3.1
   
   # Audio players
-  audioplayers: ^5.2.0 
+  audioplayers: ^6.1.0 
 
   # Camera (buat nyetor)
   camera: ^0.10.5
@@ -49,4 +49,10 @@ flutter:
   uses-material-design: true
   
   assets:
+    - assets/images/
+    - assets/images/Header.png
+    - assets/images/Pelajari.png
+    - assets/images/QuranMemo.png
+    - assets/images/Riwayat-Hfl.png
+    - assets/images/Setor.png
     - assets/images/self.jpg

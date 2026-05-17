@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../components/custom_header.dart';
-import 'donasi_page.dart'; // 🔥 TAMBAHKAN untuk navigasi donasi
+import 'donasi_page.dart';
 
 class RiwayatDonasiPage extends StatelessWidget {
   const RiwayatDonasiPage({Key? key}) : super(key: key);
@@ -58,7 +58,6 @@ class RiwayatDonasiPage extends StatelessWidget {
               showAvatar: true,
               showSearch: false,
               showBackButton: true,
-              isParent: true,
             ),
             Expanded(
               child: _riwayatDonasi.isEmpty

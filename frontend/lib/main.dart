@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'page/main_page.dart';
+import 'page/auth./onboarding_page.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
       title: 'QuranMemo',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
-      home: const MainPage(),
+      home: const OnboardingPage(),
     );
   }
 }

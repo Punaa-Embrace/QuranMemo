@@ -212,7 +212,6 @@ class _DonasiPageState extends State<DonasiPage> {
               showAvatar: true,
               showSearch: false,
               showBackButton: true,
-              isParent: true,
             ),
             Expanded(
               child: SingleChildScrollView(

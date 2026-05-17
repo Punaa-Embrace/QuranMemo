@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
 import '../theme/app_theme.dart';
 import '../services/quran_service.dart';
+import '../services/audio_service.dart';
 import '../models/surah_model.dart';
+import '../services/quran_database.dart';
 
 class DetailSuratPage extends StatefulWidget {
   final int nomorSurat;
@@ -16,98 +17,39 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
   SurahDetail? _surahDetail;
   bool _isLoading = true;
   String _errorMessage = '';
-  String _selectedQari = '05'; // Default Qari
-  bool _showTranslation = true; 
-  bool _showLatin = true; 
-  late final AudioPlayer _audioPlayer;
+  String _selectedQari = '05';
+  bool _showTranslation = true;
+  bool _showLatin = true;
   bool _isAudioLoading = false;
-  bool _isAudioPlaying = false;
-  bool _isPlayingFull = false;
-  int? _playingAyatNumber;
-  Duration _audioDuration = Duration.zero;
-  Duration _audioPosition = Duration.zero;
 
   @override
   void initState() {
     super.initState();
-    _audioPlayer = AudioPlayer();
-    _audioPlayer.onPlayerStateChanged.listen((state) {
-      setState(() {
-        _isAudioPlaying = state == PlayerState.playing;
-        if (state == PlayerState.playing) {
-          _isAudioLoading = false;
-        }
-        if (state == PlayerState.stopped) {
-          _isAudioLoading = false;
-        }
-      });
-    });
-    _audioPlayer.onDurationChanged.listen((d) {
-      setState(() {
-        _audioDuration = d;
-      });
-    });
-    _audioPlayer.onPositionChanged.listen((p) {
-      setState(() {
-        _audioPosition = p;
-      });
-    });
-    _audioPlayer.onPlayerComplete.listen((event) async {
-      if (_isPlayingFull) {
-        setState(() {
-          _isAudioPlaying = false;
-          _isPlayingFull = false;
-          _playingAyatNumber = null;
-        });
-        return;
-      }
-
-      if (_playingAyatNumber == null || _surahDetail == null) return;
-
-      int nextAyat = _playingAyatNumber! + 1;
-
-      if (nextAyat > _surahDetail!.ayat.length) {
-        setState(() {
-          _isAudioPlaying = false;
-          _playingAyatNumber = null;
-        });
-        return;
-      }
-
-      final next = _surahDetail!.ayat[nextAyat - 1];
-      final url = next.audio[_selectedQari];
-
-      if (url != null && url.isNotEmpty) {
-        try {
-          setState(() {
-            _playingAyatNumber = nextAyat;
-            _isAudioLoading = true;
-          });
-
-          await _audioPlayer.play(UrlSource(url));
-        } catch (e) {
-          setState(() {
-            _playingAyatNumber = null;
-            _isAudioLoading = false;
-          });
-        }
-      }
-    });
-
+    AudioService.init();
+    AudioService.addListener(_onAudioStateChanged);
+    AudioService.setOnAyatComplete(_onAyatComplete);
     _loadDetailSurat();
   }
 
-  String _formatDuration(Duration d) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    final minutes = two(d.inMinutes.remainder(60));
-    final seconds = two(d.inSeconds.remainder(60));
-    return '${d.inHours > 0 ? '${two(d.inHours)}:' : ''}$minutes:$seconds';
+  void _onAudioStateChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _onAyatComplete(int completedAyat) {
+    if (_surahDetail == null) return;
+    
+    final nextAyat = completedAyat + 1;
+    if (nextAyat <= _surahDetail!.ayat.length) {
+      _playAyat(nextAyat);
+    }
   }
 
   @override
   void dispose() {
-    _audioPlayer.stop();
-    _audioPlayer.dispose();
+    AudioService.removeListener(_onAudioStateChanged);
+    AudioService.stop();
     super.dispose();
   }
 
@@ -117,6 +59,13 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
       _errorMessage = '';
     });
 
+    // DEBUG: CEK ISI DATABASE SEBELUM LOAD
+    final cekSurah = await QuranDatabase.getSurahById(widget.nomorSurat);
+    final cekAyat = await QuranDatabase.getAyatBySurah(widget.nomorSurat);
+    print("🔍 DEBUG: Surah ${widget.nomorSurat} di database:");
+    print("   - Info surah: ${cekSurah != null ? 'ADA' : 'KOSONG'}");
+    print("   - Jumlah ayat: ${cekAyat.length}");
+
     try {
       final detail = await QuranService.getDetailSurat(widget.nomorSurat);
       setState(() {
@@ -124,23 +73,104 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
         _isLoading = false;
       });
     } catch (e) {
+      String userMessage = e.toString();
+      if (userMessage.contains('Tidak dapat mengambil') ||
+          userMessage.contains('butuh koneksi internet')) {
+        userMessage = 'Butuh koneksi internet untuk pertama kali membuka surat ini';
+      }
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = userMessage;
         _isLoading = false;
       });
     }
   }
 
-  // biar bersihin tag HTML dari deskripsi
+  Future<void> _playAyat(int nomorAyat) async {
+    if (_surahDetail == null) return;
+    if (nomorAyat < 1 || nomorAyat > _surahDetail!.ayat.length) return;
+
+    final ayat = _surahDetail!.ayat[nomorAyat - 1];
+    final url = ayat.audio[_selectedQari];
+    
+    if (url == null || url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Audio tidak tersedia untuk qari ini'),
+          backgroundColor: AppTheme.primaryColor,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isAudioLoading = true;
+    });
+
+    try {
+      await AudioService.playAyat(
+        url: url,
+        surahId: widget.nomorSurat,
+        ayat: nomorAyat,
+        qari: _selectedQari,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal memutar audio: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAudioLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _stopAudio() async {
+    await AudioService.stop();
+  }
+
+  Future<void> _playFullSurah() async {
+    if (_surahDetail == null) return;
+    
+    final url = _surahDetail!.audioFull[_selectedQari];
+    if (url == null || url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Audio penuh tidak tersedia untuk qari ini')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isAudioLoading = true;
+    });
+
+    try {
+      await AudioService.playFullSurah(
+        url: url,
+        surahId: widget.nomorSurat,
+        qari: _selectedQari,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal memutar audio: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAudioLoading = false;
+        });
+      }
+    }
+  }
+
   String _cleanHtmlDescription(String htmlText) {
-    // Hapus tag <i> dan </i>
     String clean = htmlText.replaceAll('<i>', '');
     clean = clean.replaceAll('</i>', '');
-    // Hapus tag <br> dan <br/>
     clean = clean.replaceAll('<br>', '\n');
     clean = clean.replaceAll('<br/>', '\n');
     clean = clean.replaceAll('<br />', '\n');
-    // Hapus tag lainnya kalo ada
     clean = clean.replaceAll(RegExp(r'<[^>]*>'), '');
     return clean;
   }
@@ -160,16 +190,17 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
 
   Widget? _buildBottomAudioBar() {
     if (_surahDetail == null) return null;
-    final hasAudio =
-        _isPlayingFull ||
-        _playingAyatNumber != null ||
-        _audioPosition > Duration.zero;
+    
+    final hasAudio = AudioService.isPlayingFull ||
+        AudioService.currentAyat != null ||
+        AudioService.currentPosition > Duration.zero;
+    
     if (!hasAudio) return null;
 
     final title = _surahDetail!.namaLatin;
-    final currentLabel = _isPlayingFull
+    final currentLabel = AudioService.isPlayingFull
         ? 'Full'
-        : (_playingAyatNumber != null ? _playingAyatNumber.toString() : '-');
+        : (AudioService.currentAyat != null ? AudioService.currentAyat.toString() : '-');
 
     return SafeArea(
       child: Container(
@@ -205,111 +236,61 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.skip_previous),
-                  onPressed: () async {
+                  onPressed: () {
                     if (_surahDetail == null) return;
-
-                    int current = _playingAyatNumber ?? 1;
+                    int current = AudioService.currentAyat ?? 1;
                     int prev = current - 1;
-
-                    if (prev < 1) return;
-
-                    final ayat = _surahDetail!.ayat[prev - 1];
-                    final url = ayat.audio[_selectedQari];
-
-                    if (url != null && url.isNotEmpty) {
-                      await _audioPlayer.stop();
-
-                      setState(() {
-                        _isAudioLoading = true;
-                        _playingAyatNumber = prev;
-                        _isPlayingFull = false;
-                      });
-
-                      await _audioPlayer.play(UrlSource(url));
+                    if (prev >= 1) {
+                      _playAyat(prev);
                     }
                   },
                 ),
                 IconButton(
                   iconSize: 36,
-                  icon: _isAudioPlaying
-                      ? const Icon(
-                          Icons.pause_circle_filled,
-                          color: AppTheme.primaryColor,
-                        )
-                      : const Icon(
-                          Icons.play_circle_fill,
-                          color: AppTheme.primaryColor,
-                        ),
+                  icon: AudioService.isPlaying
+                      ? const Icon(Icons.pause_circle_filled, color: AppTheme.primaryColor)
+                      : const Icon(Icons.play_circle_fill, color: AppTheme.primaryColor),
                   onPressed: () async {
-                    if (_isAudioPlaying) {
-                      await _audioPlayer.pause();
+                    if (AudioService.isPlaying) {
+                      await AudioService.pause();
                     } else {
-                      // resume or play current
-                      if (_isPlayingFull) {
-                        final url = _surahDetail!.audioFull[_selectedQari];
-                        if (url != null && url.isNotEmpty) {
-                          await _audioPlayer.resume();
-                        }
-                      } else if (_playingAyatNumber != null) {
-                        await _audioPlayer.resume();
+                      if (AudioService.isPlayingFull) {
+                        await AudioService.resume();
+                      } else if (AudioService.currentAyat != null) {
+                        await AudioService.resume();
                       }
                     }
                   },
                 ),
                 IconButton(
                   icon: const Icon(Icons.skip_next),
-                  onPressed: () async {
+                  onPressed: () {
                     if (_surahDetail == null) return;
-
-                    int current = _playingAyatNumber ?? 0;
+                    int current = AudioService.currentAyat ?? 0;
                     int next = current + 1;
-
-                    if (next > _surahDetail!.ayat.length) return;
-
-                    final ayat = _surahDetail!.ayat[next - 1];
-                    final url = ayat.audio[_selectedQari];
-
-                    if (url != null && url.isNotEmpty) {
-                      await _audioPlayer.stop();
-
-                      setState(() {
-                        _isAudioLoading = true;
-                        _playingAyatNumber = next;
-                        _isPlayingFull = false;
-                      });
-
-                      await _audioPlayer.play(UrlSource(url));
+                    if (next <= _surahDetail!.ayat.length) {
+                      _playAyat(next);
                     }
                   },
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
-                  onPressed: () async {
-                    await _audioPlayer.stop();
-                    setState(() {
-                      _isAudioLoading = false;
-                      _isAudioPlaying = false;
-                      _isPlayingFull = false;
-                      _playingAyatNumber = null;
-                      _audioPosition = Duration.zero;
-                    });
-                  },
+                  onPressed: _stopAudio,
                 ),
               ],
             ),
             const SizedBox(height: 6),
-            // Linear progress
             Column(
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      _formatDuration(_audioPosition),
+                      AudioService.formatDuration(AudioService.currentPosition),
                       style: const TextStyle(fontSize: 12),
                     ),
                     Text(
-                      _formatDuration(_audioDuration),
+                      AudioService.formatDuration(AudioService.totalDuration),
                       style: const TextStyle(fontSize: 12),
                     ),
                   ],
@@ -318,9 +299,9 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: LinearProgressIndicator(
-                    value: _audioDuration.inMilliseconds > 0
-                        ? _audioPosition.inMilliseconds /
-                              _audioDuration.inMilliseconds
+                    value: AudioService.totalDuration.inMilliseconds > 0
+                        ? AudioService.currentPosition.inMilliseconds /
+                              AudioService.totalDuration.inMilliseconds
                         : 0,
                     minHeight: 6,
                     backgroundColor: Colors.grey[200],
@@ -392,7 +373,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
   Widget _buildDetailContent() {
     if (_surahDetail == null) return const SizedBox();
 
-    // nge nentukan warna sesuai surah turun
     final bool isMakkiyah = _surahDetail!.tempatTurun.toLowerCase() == 'mekah';
     final Color tempatWarna = isMakkiyah ? Colors.purple : Colors.blue;
 
@@ -422,7 +402,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
             background: Stack(
               fit: StackFit.expand,
               children: [
-                // Gradient background
                 Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -435,7 +414,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
                     ),
                   ),
                 ),
-                // Nama Arab di background
                 Center(
                   child: Text(
                     _surahDetail!.nama,
@@ -457,14 +435,12 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
             ),
           ),
           actions: [
-            // Pilih Qari
             IconButton(
               icon: const Icon(Icons.audiotrack, color: Colors.white),
               onPressed: _showQariSelector,
             ),
-            // Play full surat
             IconButton(
-              icon: _isAudioLoading && _isPlayingFull
+              icon: AudioService.isLoading && AudioService.isPlayingFull
                   ? const SizedBox(
                       width: 20,
                       height: 20,
@@ -474,56 +450,19 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
                       ),
                     )
                   : Icon(
-                      _isAudioPlaying && _isPlayingFull
+                      AudioService.isPlaying && AudioService.isPlayingFull
                           ? Icons.stop
                           : Icons.play_circle_fill,
                       color: Colors.white,
                     ),
               onPressed: () async {
-                if (_surahDetail == null) return;
-                final url = _surahDetail!.audioFull[_selectedQari];
-                if (url == null || url.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Audio penuh tidak tersedia untuk qari ini',
-                      ),
-                    ),
-                  );
-                  return;
-                }
-
-                if (_isAudioPlaying && _isPlayingFull) {
-                  await _audioPlayer.stop();
-                  setState(() {
-                    _isPlayingFull = false;
-                    _isAudioLoading = false;
-                    _playingAyatNumber = null;
-                  });
-                  return;
-                }
-
-                // stop any per-ayat audio
-                await _audioPlayer.stop();
-                setState(() {
-                  _isAudioLoading = true;
-                  _isPlayingFull = true;
-                  _playingAyatNumber = null;
-                });
-                try {
-                  await _audioPlayer.play(UrlSource(url));
-                } catch (e) {
-                  setState(() {
-                    _isAudioLoading = false;
-                    _isPlayingFull = false;
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Gagal memutar audio: $e')),
-                  );
+                if (AudioService.isPlaying && AudioService.isPlayingFull) {
+                  await AudioService.stop();
+                } else {
+                  await _playFullSurah();
                 }
               },
             ),
-            // Setting tampilan
             PopupMenuButton<String>(
               icon: const Icon(Icons.settings, color: Colors.white),
               onSelected: (value) {
@@ -570,8 +509,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
             ),
           ],
         ),
-
-        // Info surat 
         SliverToBoxAdapter(
           child: Container(
             margin: const EdgeInsets.all(16),
@@ -610,8 +547,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
             ),
           ),
         ),
-
-        // Deskripsi surat
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -657,8 +592,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
             ),
           ),
         ),
-
-        // Daftar ayat
         SliverPadding(
           padding: const EdgeInsets.all(16),
           sliver: SliverList(
@@ -692,15 +625,18 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
   }
 
   Widget _buildAyatItem(Ayat ayat, int nomor) {
-    final bool isPlayingThisAyat =
-        _isAudioPlaying && _playingAyatNumber == nomor && !_isPlayingFull;
+    final bool isPlayingThisAyat = AudioService.isPlaying &&
+        AudioService.currentAyat == nomor &&
+        !AudioService.isPlayingFull;
+    
+    final bool isLoadingThisAyat = AudioService.isLoading &&
+        AudioService.currentAyat == nomor &&
+        !AudioService.isPlayingFull;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 1,
-      color: isPlayingThisAyat
-          ? const Color(0xFFE8F5E9)
-          : Colors.white,
+      color: isPlayingThisAyat ? const Color(0xFFE8F5E9) : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
@@ -713,7 +649,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header Ayat
             Row(
               children: [
                 Container(
@@ -738,16 +673,13 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
                     ),
                   ),
                 ),
-
                 const Spacer(),
-
-                // Tombol Play sama Stop
                 Container(
                   decoration: const BoxDecoration(
                     color: AppTheme.primaryColor,
                     shape: BoxShape.circle,
                   ),
-                  child: _isAudioLoading && _playingAyatNumber == nomor
+                  child: isLoadingThisAyat
                       ? const Padding(
                           padding: EdgeInsets.all(8),
                           child: SizedBox(
@@ -768,54 +700,10 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
                             size: 20,
                           ),
                           onPressed: () async {
-                            final url = ayat.audio[_selectedQari];
-
-                            if (url == null || url.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text(
-                                    'Audio tidak tersedia untuk qari ini',
-                                  ),
-                                  backgroundColor: AppTheme.primaryColor,
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                              return;
-                            }
-
-                            // STOP AYAT
                             if (isPlayingThisAyat) {
-                              await _audioPlayer.stop();
-                              setState(() {
-                                _isAudioLoading = false;
-                                _playingAyatNumber = null;
-                                _isPlayingFull = false;
-                              });
-                              return;
-                            }
-
-                            // PLAY AYAT
-                            await _audioPlayer.stop();
-
-                            setState(() {
-                              _isAudioLoading = true;
-                              _playingAyatNumber = nomor;
-                              _isPlayingFull = false;
-                            });
-
-                            try {
-                              await _audioPlayer.play(UrlSource(url));
-                            } catch (e) {
-                              setState(() {
-                                _isAudioLoading = false;
-                                _playingAyatNumber = null;
-                              });
-
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Gagal memutar audio: $e'),
-                                ),
-                              );
+                              await AudioService.stop();
+                            } else {
+                              await _playAyat(nomor);
                             }
                           },
                           padding: EdgeInsets.zero,
@@ -827,10 +715,7 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
                 ),
               ],
             ),
-
             const SizedBox(height: 16),
-
-            // TEKS ARAB
             Text(
               ayat.teksArab,
               textAlign: TextAlign.right,
@@ -840,8 +725,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
                 fontWeight: FontWeight.w500,
               ),
             ),
-
-            // LATIN
             if (_showLatin && ayat.teksLatin.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
@@ -853,8 +736,6 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
                 ),
               ),
             ],
-
-            // TERJEMAHAN
             if (_showTranslation && ayat.teksIndonesia.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(

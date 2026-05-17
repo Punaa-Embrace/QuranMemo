@@ -50,7 +50,7 @@ class DashboardOrtu extends StatelessWidget {
 
     // 🔥 DATA MENU GRID
     final List<Map<String, dynamic>> menuGrid = [
-      {'icon': Icons.book, 'label': 'Baca Quran', 'color': Colors.green, 'page': const SurahPage()},
+      {'icon': Icons.book, 'label': 'Baca Quran', 'color': Colors.green, 'page': const SuratPage()},
       {'icon': Icons.assessment, 'label': 'Laporan', 'color': Colors.orange, 'page': null},
       {'icon': Icons.message, 'label': 'Pesan', 'color': Colors.blue, 'page': null},
       {'icon': Icons.volunteer_activism, 'label': 'Donasi', 'color': Colors.purple, 'page': const DonasiPage()},
@@ -71,7 +71,6 @@ class DashboardOrtu extends StatelessWidget {
                 showAvatar: true,
                 showSearch: false,
                 showBackButton: false,
-                isParent: true,
               ),
 
               const SizedBox(height: 20),
