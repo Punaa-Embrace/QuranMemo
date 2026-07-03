@@ -40,6 +40,9 @@ dependencies:
   # Icons
   cupertino_icons: ^1.0.8
 
+  # Local Video
+  video_player: ^2.9.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -56,3 +59,4 @@ flutter:
     - assets/images/Riwayat-Hfl.png
     - assets/images/Setor.png
     - assets/images/self.jpg
+    - assets/videos/

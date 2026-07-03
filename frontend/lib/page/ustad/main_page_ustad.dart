@@ -21,7 +21,7 @@ class MainPageUstad extends StatefulWidget {
 class _MainPageUstadState extends State<MainPageUstad> {
   late int _selectedIndex;
 
-  final List<Widget> _pages = const [
+  final List<Widget> _pages = [
     DashboardPageUstad(),
     QuranPageUstad(),
     SetoranPageUstad(),
