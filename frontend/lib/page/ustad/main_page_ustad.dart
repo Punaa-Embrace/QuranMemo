@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../components/custom_bottom_nav.dart';
 
 import 'dashboard_page_ustad.dart';
-import 'quran_page_ustad.dart';
+import '../surah_page.dart';
 import 'setoran_page_ustad.dart';
 
 class MainPageUstad extends StatefulWidget {
@@ -23,7 +23,7 @@ class _MainPageUstadState extends State<MainPageUstad> {
 
   final List<Widget> _pages = [
     DashboardPageUstad(),
-    QuranPageUstad(),
+    SuratPage(),
     SetoranPageUstad(),
   ];
 
