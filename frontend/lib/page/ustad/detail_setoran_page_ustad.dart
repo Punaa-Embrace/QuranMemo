@@ -345,7 +345,7 @@ class _DetailSetoranPageUstadState extends State<DetailSetoranPageUstad> {
   final TextEditingController feedbackController =
       TextEditingController();
 
-  bool _showControls = false; // default hidden (IMK style)
+  bool _showControls = false; 
   String status = "Pending";
 
   @override
@@ -361,6 +361,12 @@ class _DetailSetoranPageUstadState extends State<DetailSetoranPageUstad> {
     _controller = VideoPlayerController.asset(
       'assets/videos/sample.mp4',
     );
+
+    // DB Connect Use this
+    // _controller = VideoPlayerController.networkUrl(
+    //   Uri.parse(videoUrl),
+    // );
+
 
     await _controller.initialize();
 
@@ -493,7 +499,7 @@ class _DetailSetoranPageUstadState extends State<DetailSetoranPageUstad> {
             const SizedBox(height: 20),
 
             /// =========================
-            /// VIDEO CARD (IMK UPGRADE)
+            /// VIDEO CARD 
             /// =========================
             Container(
               padding: const EdgeInsets.all(12),
@@ -620,7 +626,7 @@ class _DetailSetoranPageUstadState extends State<DetailSetoranPageUstad> {
             const SizedBox(height: 20),
 
             /// =========================
-            /// FEEDBACK (IMK CARD)
+            /// FEEDBACK 
             /// =========================
             Container(
               padding: const EdgeInsets.all(12),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import 'detail_setoran_page_ustad.dart';
+import '../../components/app_layout.dart';
 
 class SetoranPageUstad extends StatefulWidget {
   const SetoranPageUstad({super.key});
@@ -104,71 +105,67 @@ class _SetoranPageUstadState extends State<SetoranPageUstad> {
   Widget build(BuildContext context) {
     final data = filteredData;
 
-    return Column(
-      children: [
+    return AppLayout(
+      title: "Setoran Hafalan",
+      imagePath: 'assets/images/self.jpg',
+      scrollable: false,
+      child: Column(
+        children: [
 
-        const SizedBox(height: 15),
+          _buildSearch(),
+          const SizedBox(height: 10),
 
-        _buildSearch(),
+          _buildFilter(),
+          const SizedBox(height: 5),
 
-        const SizedBox(height: 16),
+          _buildSort(),
+          const SizedBox(height: 5),
 
-        _buildFilter(),
-
-        const SizedBox(height: 16),
-
-        _buildSort(),
-
-        const SizedBox(height: 15),
-
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Row(
-            children: [
-              Text(
-                "Menampilkan ${data.length} setoran",
-                style: TextStyle(
-                  color: Colors.grey.shade700,
-                  fontWeight: FontWeight.w600,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Row(
+              children: [
+                Text(
+                  "Menampilkan ${data.length} setoran",
+                  style: TextStyle(
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
 
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
 
-        Expanded(
-          child: data.isEmpty
-              ? _buildEmpty()
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: data.length,
-                  itemBuilder: (context, index) {
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: data.length,
+              itemBuilder: (context, index) {
+                final item = data[index];
 
-                    final item = data[index];
-
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                DetailSetoranPageUstad(data: item),
-                          ),
-                        );
-                      },
-                      child: _buildCard(item),
+                return InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DetailSetoranPageUstad(data: item),
+                      ),
                     );
                   },
-                ),
-        ),
-      ],
+                  child: _buildCard(item),
+                );
+              },
+            ),
+          )
+        ],
+      ),
     );
   }
 
-    /// ============================
+  /// ============================
   /// SEARCH BAR
   /// ============================
   Widget _buildSearch() {

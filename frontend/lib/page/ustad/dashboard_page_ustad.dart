@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
+import '../../components/app_layout.dart';
 
 class DashboardPageUstad extends StatelessWidget {
   DashboardPageUstad({super.key});
@@ -16,12 +17,15 @@ class DashboardPageUstad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    return AppLayout(
+      title: "Dashboard Ustadz",
+      imagePath: "assets/images/self.jpg",
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(1),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
+        
           /// =========================
           /// HEADER CONTEXT (clean, no workload text)
           /// =========================
@@ -47,7 +51,7 @@ class DashboardPageUstad extends StatelessWidget {
           /// ACTION CENTER
           /// =========================
           const Text(
-            "Aksi Utama",
+            "Utama",
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
 
@@ -88,7 +92,7 @@ class DashboardPageUstad extends StatelessWidget {
           _activityItem("Aisyah menunggu feedback"),
         ],
       ),
-    );
+    ));
   }
 
   /// =========================
@@ -97,7 +101,7 @@ class DashboardPageUstad extends StatelessWidget {
   Widget _header() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -111,10 +115,10 @@ class DashboardPageUstad extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "Dashboard Ustadz",
+            "Assalamu'alaikum",
             style: TextStyle(
               color: Colors.white,
-              fontSize: 18,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -123,12 +127,12 @@ class DashboardPageUstad extends StatelessWidget {
 
           Text(
             gregorianDate,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            style: const TextStyle(color: Colors.white70, fontSize: 15),
           ),
 
           Text(
             hijriDate,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            style: const TextStyle(color: Colors.white70, fontSize: 15),
           ),
         ],
       ),
