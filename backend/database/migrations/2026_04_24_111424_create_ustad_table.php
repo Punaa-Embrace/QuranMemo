@@ -4,7 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      */
@@ -12,12 +13,20 @@ return new class extends Migration {
     {
         Schema::create('ustad', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->string('nik');
-            $table->string('email');
+
+            $table->string('nik')->unique();
+            $table->string('email')->unique();
             $table->string('nama');
             $table->string('password');
-            $table->string('token');
-            $table->string('role');
+            $table->text('token')->nullable();
+
+            $table->uuid('role');
+
+            $table->foreign('role')
+                ->references('id')
+                ->on('role')
+                ->cascadeOnUpdate()
+                ->restrictOnDelete();
         });
     }
 

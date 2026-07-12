@@ -19,6 +19,9 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
   String _selectedQari = '05';
   bool _showTranslation = true;
   bool _showLatin = true;
+  
+  //  TAMBAHKAN SCROLL CONTROLLER
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -32,6 +35,8 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
   void _onAudioStateChanged() {
     if (mounted) {
       setState(() {});
+      //  AUTO-SCROLL KE AYAT YANG SEDANG DIPUTAR
+      _scrollToCurrentAyat();
     }
   }
 
@@ -44,10 +49,40 @@ class _DetailSuratPageState extends State<DetailSuratPage> {
     }
   }
 
+  //  METHOD UNTUK SCROLL KE AYAT TERTENTU
+  void _scrollToCurrentAyat() {
+    if (_surahDetail == null) return;
+    
+    final currentAyat = AudioService.currentAyat;
+    if (currentAyat == null) return;
+    
+    // Hitung indeks (0-based)
+    final index = currentAyat - 1;
+    
+    // Cek apakah widget sudah ter-build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        // Estimasi tinggi card + margin (sekitar 200-250)
+        final double itemHeight = 240.0;
+        final double targetOffset = index * itemHeight;
+        
+        // Scroll dengan animasi
+        _scrollController.animateTo(
+          targetOffset,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+        
+        print(" Auto-scroll ke ayat $currentAyat, offset: $targetOffset");
+      }
+    });
+  }
+
   @override
   void dispose() {
     AudioService.removeListener(_onAudioStateChanged);
     AudioService.stop();
+    _scrollController.dispose();
     super.dispose();
   }
 

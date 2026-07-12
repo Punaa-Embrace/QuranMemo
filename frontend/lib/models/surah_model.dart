@@ -103,7 +103,6 @@ class Ayat {
   });
 
   factory Ayat.fromJson(Map<String, dynamic> json) {
-    // 🔥 PERBAIKAN: API pakai "nomorAyat", BUKAN "nomor"
     final nomorAyat = json['nomorAyat'] as int? ?? 0;
     
     return Ayat(

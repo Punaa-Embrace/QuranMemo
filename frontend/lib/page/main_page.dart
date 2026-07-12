@@ -19,7 +19,7 @@ class _MainPageState extends State<MainPage> {
   late int _selectedIndex;
 
   final List<Widget> _pages = const [
-    DashboardPage(),
+    SantriPage(),
     SetoranPage(),
     SuratPage(),
     PermainanPage(),
@@ -141,71 +141,57 @@ class _MainPageState extends State<MainPage> {
           _selectedIndex = index;
         });
       },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Transform.translate(
-            offset: const Offset(0, -12),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              width: 55,
-              height: 55,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: isSelected
-                    ? LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppTheme.primaryColor,
-                          AppTheme.primaryColor.withOpacity(0.7),
-                        ],
-                      )
-                    : LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.grey[400]!,
-                          Colors.grey[300]!,
-                        ],
-                      ),
-                boxShadow: isSelected
-                    ? [
+      child: Container(
+        color: Colors.transparent,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            SizedBox(
+              height: 28,
+              width: 28,
+              child: OverflowBox(
+                minHeight: 65,
+                maxHeight: 65,
+                minWidth: 65,
+                maxWidth: 65,
+                alignment: Alignment.bottomCenter,
+                child: Transform.translate(
+                  offset: const Offset(0, -12),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
                         BoxShadow(
-                          color: AppTheme.primaryColor.withOpacity(0.4),
-                          blurRadius: 12,
+                          color: AppTheme.primaryColor.withOpacity(0.3),
+                          blurRadius: 15,
                           spreadRadius: 2,
-                          offset: const Offset(0, 3),
-                        ),
-                      ]
-                    : [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.2),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                          offset: const Offset(0, 2),
+                          offset: const Offset(0, 5),
                         ),
                       ],
-              ),
-              child: Icon(
-                icon,
-                color: Colors.white,
-                size: 28,
+                    ),
+                    padding: const EdgeInsets.all(8),
+                    child: Image.asset(
+                      "assets/images/QuranNoText.png",
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 4),
-          AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 200),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              color: isSelected ? AppTheme.primaryColor : Colors.grey[500],
+            const SizedBox(height: 4),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: isSelected ? AppTheme.primaryColor : Colors.grey[500],
+              ),
+              child: Text(label),
             ),
-            child: Text(label),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

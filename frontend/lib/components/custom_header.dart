@@ -13,7 +13,7 @@ class CustomHeader extends StatelessWidget {
   final bool showBackButton;
   final VoidCallback? onBackPressed;
   
-  // 🔥 TAMBAHKAN PARAMETER UNTUK MENGATUR UKURAN
+  // MENGATUR UKURAN
   final double searchTextSize;
   final double hintTextSize;
 
@@ -28,8 +28,8 @@ class CustomHeader extends StatelessWidget {
     this.showAvatar = true,
     this.showBackButton = false,
     this.onBackPressed,
-    this.searchTextSize = 16,    // 🔥 DEFAULT 16
-    this.hintTextSize = 14,       // 🔥 DEFAULT 14
+    this.searchTextSize = 16,    
+    this.hintTextSize = 14,       
   });
 
   @override
@@ -89,8 +89,20 @@ class CustomHeader extends StatelessWidget {
   Widget _buildLogo() {
     return Row(
       children: [
-        const Icon(Icons.menu_book_rounded, color: Colors.white, size: 26),
-        const SizedBox(width: 5),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+          child: Image.asset(
+            "assets/images/QuranNoText.png",
+            width: 24,
+            height: 24,
+            fit: BoxFit.contain,
+          ),
+        ),
+        const SizedBox(width: 10),
         Text(
           title,
           style: const TextStyle(
@@ -142,14 +154,12 @@ class CustomHeader extends StatelessWidget {
           controller: controller,
           onChanged: onChanged,
           style: TextStyle(
-            fontSize: searchTextSize,  // 🔥 PAKAI PARAMETER
-            fontWeight: FontWeight.normal,
+            fontSize: searchTextSize,  //            fontWeight: FontWeight.normal,
           ),
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: TextStyle(
-              fontSize: hintTextSize,   // 🔥 PAKAI PARAMETER
-              color: Colors.grey[400],
+              fontSize: hintTextSize,   //              color: Colors.grey[400],
             ),
             border: InputBorder.none,
             icon: Icon(Icons.search, color: AppTheme.primaryColor, size: 20),

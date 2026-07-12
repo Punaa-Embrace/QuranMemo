@@ -12,8 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('leaderboard', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
+            $table->uuid('id')->primary();
+
+            $table->uuid('santri_id');
+            $table->integer('nilai');
+
+            $table->foreign('santri_id')
+                ->references('id')
+                ->on('santri')
+                ->cascadeOnUpdate()
+                ->cascadeOnDelete();
         });
     }
 

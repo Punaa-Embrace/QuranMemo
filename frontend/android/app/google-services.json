@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "278616106149",
+    "project_id": "quranmemo-4mb",
+    "storage_bucket": "quranmemo-4mb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:278616106149:android:fcc437609102be7f11994c",
+        "android_client_info": {
+          "package_name": "com.quranmemo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBXh0kdT9YiDYJHrv8_7rqYMUfUPX_Rf-c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

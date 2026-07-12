@@ -1,8 +1,9 @@
-// lib/page/ortu/donasi_page.dart
 import 'package:flutter/material.dart';
+import '../../services/donasi_service.dart';
 import '../../theme/app_theme.dart';
 import '../../components/custom_header.dart';
 import 'riwayat_donasi.dart';
+import 'donasi_payment_page.dart';
 
 class DonasiPage extends StatefulWidget {
   const DonasiPage({Key? key}) : super(key: key);
@@ -14,37 +15,15 @@ class DonasiPage extends StatefulWidget {
 class _DonasiPageState extends State<DonasiPage> {
   final TextEditingController _nominalController = TextEditingController();
   String _selectedNominal = '';
-  String _selectedPaymentMethod = 'bank_transfer';
   bool _isLoading = false;
 
   final List<String> _nominalOptions = [
-    '10.000',
-    '25.000',
-    '50.000',
-    '100.000',
-    '250.000',
-    '500.000',
-  ];
-
-  final List<Map<String, dynamic>> _paymentMethods = [
-    {
-      'name': 'Bank Transfer',
-      'value': 'bank_transfer',
-      'icon': Icons.account_balance,
-      'color': Color(0xFF1E88E5),
-    },
-    {
-      'name': 'QRIS',
-      'value': 'qris',
-      'icon': Icons.qr_code_scanner,
-      'color': Color(0xFF00A86B),
-    },
-    {
-      'name': 'E-Wallet',
-      'value': 'ewallet',
-      'icon': Icons.phone_android,
-      'color': Color(0xFF5E35B1),
-    },
+    '10000',
+    '25000',
+    '50000',
+    '100000',
+    '250000',
+    '500000',
   ];
 
   Future<void> _handleDonasi() async {
@@ -64,130 +43,36 @@ class _DonasiPageState extends State<DonasiPage> {
 
     setState(() => _isLoading = true);
 
-    // Simulasi integrasi Midtrans
-    await Future.delayed(const Duration(seconds: 2));
+    // PAKAI DONASI SERVICE
+    final response = await DonasiService.createDonasi(
+      int.parse(nominal.replaceAll('.', '')),
+    );
 
     setState(() => _isLoading = false);
 
-    // Show success dialog dengan detail pembayaran
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_circle,
-                color: Colors.green,
-                size: 48,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Donasi Berhasil!',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Divider(),
-            const SizedBox(height: 8),
-            _buildDetailRow('Nominal', 'Rp ${_formatNominal(nominal)}'),
-            const SizedBox(height: 8),
-            _buildDetailRow('Metode', _getPaymentMethodName()),
-            const SizedBox(height: 8),
-            _buildDetailRow(
-              'Kode Transaksi',
-              'TRX${DateTime.now().millisecondsSinceEpoch}',
-            ),
-            const SizedBox(height: 8),
-            _buildDetailRow('Status', 'Sukses', color: Colors.green),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.cloud_download,
-                    color: AppTheme.primaryColor,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Bukti pembayaran akan dikirim ke email terdaftar',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tutup'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const RiwayatDonasiPage(),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text('Lihat Riwayat'),
-          ),
-        ],
-      ),
-    );
-  }
+    if (response['success'] == true) {
+      final data = response['data'];
+      final snapToken = data['snap_token'];
+      final orderId = data['donasi']['order_id'];
 
-  Widget _buildDetailRow(String label, String value, {Color? color}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-        Text(
-          value,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-            color: color ?? Colors.black87,
+      // Navigasi ke halaman pembayaran Midtrans
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DonasiPaymentPage(
+            snapToken: snapToken,
+            orderId: orderId,
           ),
         ),
-      ],
-    );
-  }
-
-  String _getPaymentMethodName() {
-    final method = _paymentMethods.firstWhere(
-      (m) => m['value'] == _selectedPaymentMethod,
-      orElse: () => {'name': 'Bank Transfer'},
-    );
-    return method['name'];
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response['message'] ?? 'Gagal membuat donasi'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   String _formatNominal(String text) {
@@ -197,6 +82,15 @@ class _DonasiPageState extends State<DonasiPage> {
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (match) => '${match[1]}.',
     );
+  }
+
+  String _getTotalNominal() {
+    if (_selectedNominal.isNotEmpty) {
+      return _formatNominal(_selectedNominal);
+    } else if (_nominalController.text.isNotEmpty) {
+      return _formatNominal(_nominalController.text);
+    }
+    return '0';
   }
 
   @override
@@ -218,7 +112,7 @@ class _DonasiPageState extends State<DonasiPage> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    /// Hero Section
+                    // Hero Section
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
@@ -273,10 +167,9 @@ class _DonasiPageState extends State<DonasiPage> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 20),
 
-                    /// Card Nominal Donasi
+                    // Card Nominal Donasi
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -301,6 +194,11 @@ class _DonasiPageState extends State<DonasiPage> {
                                   color: AppTheme.primaryColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
+                                child: Icon(
+                                  Icons.money,
+                                  color: AppTheme.primaryColor,
+                                  size: 24,
+                                ),
                               ),
                               const SizedBox(width: 12),
                               const Text(
@@ -314,12 +212,13 @@ class _DonasiPageState extends State<DonasiPage> {
                           ),
                           const SizedBox(height: 20),
 
-                          /// Pilihan nominal
+                          // Pilihan nominal
                           Wrap(
                             spacing: 10,
                             runSpacing: 10,
                             children: _nominalOptions.map((nominal) {
                               final isSelected = _selectedNominal == nominal;
+                              final displayNominal = _formatNominal(nominal);
                               return GestureDetector(
                                 onTap: () => setState(() {
                                   _selectedNominal = nominal;
@@ -350,7 +249,7 @@ class _DonasiPageState extends State<DonasiPage> {
                                     ),
                                   ),
                                   child: Text(
-                                    'Rp $nominal',
+                                    'Rp $displayNominal',
                                     style: TextStyle(
                                       color: isSelected
                                           ? Colors.white
@@ -367,7 +266,7 @@ class _DonasiPageState extends State<DonasiPage> {
 
                           const SizedBox(height: 20),
 
-                          /// Input nominal sendiri
+                          // Input nominal sendiri
                           TextField(
                             controller: _nominalController,
                             keyboardType: TextInputType.number,
@@ -410,114 +309,7 @@ class _DonasiPageState extends State<DonasiPage> {
 
                     const SizedBox(height: 20),
 
-                    /// Card Metode Pembayaran
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  Icons.payment,
-                                  color: AppTheme.primaryColor,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Text(
-                                'Metode Pembayaran',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-
-                          ..._paymentMethods.map((method) {
-                            final isSelected =
-                                _selectedPaymentMethod == method['value'];
-                            return GestureDetector(
-                              onTap: () => setState(
-                                () => _selectedPaymentMethod = method['value'],
-                              ),
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? AppTheme.primaryColor.withOpacity(0.05)
-                                      : Colors.grey[50],
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? AppTheme.primaryColor
-                                        : Colors.grey[200]!,
-                                    width: isSelected ? 2 : 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: method['color'].withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Icon(
-                                        method['icon'],
-                                        color: method['color'],
-                                        size: 24,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        method['name'],
-                                        style: TextStyle(
-                                          fontWeight: isSelected
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
-                                        ),
-                                      ),
-                                    ),
-                                    if (isSelected)
-                                      Icon(
-                                        Icons.check_circle,
-                                        color: AppTheme.primaryColor,
-                                        size: 22,
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    /// Card Total & Tombol Donasi
+                    // Card Total & Tombol Donasi
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -543,34 +335,13 @@ class _DonasiPageState extends State<DonasiPage> {
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    'Rp ${_getTotalNominal()}',
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.primaryColor,
-                                    ),
-                                  ),
-                                  if (_selectedPaymentMethod == 'bank_transfer')
-                                    Text(
-                                      'No. Rekening akan muncul setelah klik donasi',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey[500],
-                                      ),
-                                    ),
-                                  if (_selectedPaymentMethod == 'qris')
-                                    Text(
-                                      'QR Code akan muncul setelah klik donasi',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey[500],
-                                      ),
-                                    ),
-                                ],
+                              Text(
+                                'Rp ${_getTotalNominal()}',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryColor,
+                                ),
                               ),
                             ],
                           ),
@@ -615,6 +386,7 @@ class _DonasiPageState extends State<DonasiPage> {
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
+                                        color: Colors.white,
                                       ),
                                     ),
                             ),
@@ -624,6 +396,38 @@ class _DonasiPageState extends State<DonasiPage> {
                     ),
 
                     const SizedBox(height: 20),
+
+                    // TAMBAHKAN TOMBOL RIWAYAT DONASI
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const RiwayatDonasiPage(),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: AppTheme.primaryColor,
+                          side: BorderSide(color: AppTheme.primaryColor),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          'Lihat Riwayat Donasi',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -632,14 +436,5 @@ class _DonasiPageState extends State<DonasiPage> {
         ),
       ),
     );
-  }
-
-  String _getTotalNominal() {
-    if (_selectedNominal.isNotEmpty) {
-      return _formatNominal(_selectedNominal);
-    } else if (_nominalController.text.isNotEmpty) {
-      return _formatNominal(_nominalController.text);
-    }
-    return '0';
   }
 }

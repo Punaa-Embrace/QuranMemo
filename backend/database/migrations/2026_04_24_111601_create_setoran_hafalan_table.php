@@ -4,7 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      */
@@ -12,13 +13,21 @@ return new class extends Migration {
     {
         Schema::create('setoran_hafalan', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->uuid('relasi_id');
+
+            $table->uuid('santri_ustad_id');
+
             $table->string('surat');
             $table->integer('ayat');
             $table->string('status');
-            $table->string('feedback_tulisan');
-            $table->string('feedback_vn_path');
-            $table->string('video_path');
+            $table->string('feedback_tulisan')->nullable();
+            $table->string('feedback_vn_path')->nullable();
+            $table->string('video_path')->nullable();
+
+            $table->foreign('santri_ustad_id')
+                ->references('id')
+                ->on('santri_ustad')
+                ->cascadeOnUpdate()
+                ->cascadeOnDelete();
         });
     }
 

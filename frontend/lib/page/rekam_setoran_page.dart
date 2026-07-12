@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/surah_model.dart';
+import '../services/santri_service.dart';
 
 class RekamSetoranPage extends StatefulWidget {
   final Surah surah;
@@ -22,80 +24,187 @@ class RekamSetoranPage extends StatefulWidget {
 
 class _RekamSetoranPageState extends State<RekamSetoranPage> {
   CameraController? _controller;
+  String? _videoPath;
   bool _isRecording = false;
+  bool _isUploading = false;
   int _seconds = 0;
   Timer? _timer;
+  bool _isLocked = false;
+  String _errorMessage = '';
+
+  static const int MAX_DURATION = 600; // 10 menit
 
   @override
   void initState() {
     super.initState();
     _initCamera();
 
-    /// 🔒 LOCK ORIENTATION
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
   }
 
   Future<void> _initCamera() async {
-    final cameras = await availableCameras();
+    try {
+      final cameras = await availableCameras();
 
-    final camera = cameras.firstWhere(
-      (camera) => camera.lensDirection == CameraLensDirection.front,
-    );
+      final camera = cameras.firstWhere(
+        (camera) => camera.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
 
-    _controller = CameraController(
-      camera,
-      ResolutionPreset.medium,
-    );
+      _controller = CameraController(
+        camera,
+        ResolutionPreset.medium,
+      );
 
-    await _controller!.initialize();
-    setState(() {});
+      await _controller!.initialize();
+      setState(() {});
+    } catch (e) {
+      print('Camera error: $e');
+    }
   }
 
   Future<void> _startRecording() async {
-    await _controller!.startVideoRecording();
+    try {
+      await _controller!.startVideoRecording();
 
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() => _seconds++);
-    });
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        setState(() {
+          _seconds++;
 
-    setState(() => _isRecording = true);
+          if (_seconds >= MAX_DURATION) {
+            timer.cancel();
+            _timer = null;
+            _stopRecording();
+          }
+        });
+      });
+
+      setState(() {
+        _isRecording = true;
+        _isLocked = true;
+      });
+    } catch (e) {
+      print('Start recording error: $e');
+    }
   }
 
   Future<void> _stopRecording() async {
-    final file = await _controller!.stopVideoRecording();
+    try {
+      final XFile file = await _controller!.stopVideoRecording();
 
-    _timer?.cancel();
-    _seconds = 0;
+      if (_timer != null) {
+        _timer!.cancel();
+        _timer = null;
+      }
 
-    setState(() => _isRecording = false);
+      _seconds = 0;
 
-    print("Video disimpan: ${file.path}");
+      setState(() {
+        _isRecording = false;
+        _isLocked = false;
+        _videoPath = file.path;
+        _isUploading = true;
+      });
+
+      // LANGSUNG UPLOAD TANPA PREVIEW
+      await _uploadVideo(file.path);
+
+    } catch (e) {
+      print('Stop recording error: $e');
+      setState(() {
+        _isRecording = false;
+        _isLocked = false;
+        _errorMessage = 'Gagal menghentikan rekaman: $e';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menghentikan rekaman: $e')),
+      );
+    }
   }
 
-  /// 🔒 AUTO CANCEL KALAU KELUAR
+  Future<void> _uploadVideo(String videoPath) async {
+    try {
+      final result = await SantriService.uploadSetoran(
+        videoPath: videoPath,
+        surat: widget.surah.nomor.toString(),
+        ayat: widget.ayatEnd,
+      );
+
+      setState(() => _isUploading = false);
+
+      if (result['statusCode'] == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Setoran berhasil dikirim!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        String message = result['data']?['message'] ?? 'Unknown error';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mengirim setoran: $message'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isUploading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
   Future<bool> _onWillPop() async {
     if (_isRecording) {
-      await _controller!.stopVideoRecording();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tidak bisa keluar saat rekaman!'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return false;
     }
+
+    if (_isUploading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tunggu upload selesai!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return false;
+    }
+
     return true;
   }
 
   @override
   void dispose() {
     _controller?.dispose();
-    _timer?.cancel();
-
-    /// BALIKIN ORIENTATION
+    if (_timer != null) {
+      _timer!.cancel();
+      _timer = null;
+    }
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-
     super.dispose();
   }
 
   String get _timerText {
     final min = (_seconds ~/ 60).toString().padLeft(2, '0');
     final sec = (_seconds % 60).toString().padLeft(2, '0');
+    return "$min:$sec";
+  }
+
+  String get _remainingText {
+    final remaining = MAX_DURATION - _seconds;
+    final min = (remaining ~/ 60).toString().padLeft(2, '0');
+    final sec = (remaining % 60).toString().padLeft(2, '0');
     return "$min:$sec";
   }
 
@@ -112,11 +221,10 @@ class _RekamSetoranPageState extends State<RekamSetoranPage> {
       child: Scaffold(
         body: Stack(
           children: [
-
-            /// CAMERA
+            // CAMERA
             CameraPreview(_controller!),
 
-            /// GRADIENT OVERLAY
+            // GRADIENT OVERLAY
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -131,101 +239,181 @@ class _RekamSetoranPageState extends State<RekamSetoranPage> {
               ),
             ),
 
-            /// INFO CARD
+            // BACK BUTTON
             Positioned(
-              top: 60,
+              top: 50,
+              left: 20,
+              child: IconButton(
+                icon: Icon(
+                  Icons.arrow_back,
+                  color: _isRecording ? Colors.grey : Colors.white,
+                ),
+                onPressed: _isRecording
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                      },
+              ),
+            ),
+
+            // INFO CARD
+            Positioned(
+              top: 100,
               left: 20,
               right: 20,
               child: Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
                   children: [
-                    Text(
-                      widget.surah.namaLatin,
-                      style: const TextStyle(
+                    const Text(
+                      'Setoran Hafalan',
+                      style: TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      "Ayat ${widget.ayatStart} - ${widget.ayatEnd}",
-                      style: const TextStyle(color: Colors.white70),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${widget.surah.namaLatin} - Ayat ${widget.ayatStart} - ${widget.ayatEnd}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
 
-            /// TIMER
+            // TIMER
             if (_isRecording)
               Positioned(
-                top: 140,
+                top: 180,
                 left: 0,
                 right: 0,
-                child: Center(
-                  child: Text(
-                    _timerText,
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                child: Column(
+                  children: [
+                    Text(
+                      _timerText,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Sisa: $_remainingText',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: 200,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[800],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: FractionallySizedBox(
+                        widthFactor: _seconds / MAX_DURATION,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _seconds > MAX_DURATION * 0.8
+                                ? Colors.red
+                                : Colors.green,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // UPLOADING LOADING
+            if (_isUploading)
+              Container(
+                color: Colors.black54,
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: Colors.white),
+                      SizedBox(height: 16),
+                      Text(
+                        'Mengirim setoran...',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ],
                   ),
                 ),
               ),
 
-            /// BUTTON RECORD
+            // BUTTON RECORD
             Positioned(
               bottom: 40,
               left: 0,
               right: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap: _isRecording
-                      ? _stopRecording
-                      : _startRecording,
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 4,
+              child: Column(
+                children: [
+                  GestureDetector(
+                    onTap: _isUploading
+                        ? null
+                        : (_isRecording ? _stopRecording : _startRecording),
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: _isRecording ? Colors.red : Colors.white,
+                          width: 4,
+                        ),
                       ),
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: _isRecording ? 30 : 60,
-                        height: _isRecording ? 30 : 60,
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(
-                              _isRecording ? 8 : 30),
+                      child: Center(
+                        child: Container(
+                          width: _isRecording ? 30 : 60,
+                          height: _isRecording ? 30 : 60,
+                          decoration: BoxDecoration(
+                            color: _isUploading ? Colors.grey : Colors.red,
+                            borderRadius: BorderRadius.circular(
+                                _isRecording ? 8 : 30),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            ),
 
-            /// TEXT INFO
-            Positioned(
-              bottom: 120,
-              left: 0,
-              right: 0,
-              child: const Center(
-                child: Text(
-                  "Tekan untuk mulai rekam",
-                  style: TextStyle(color: Colors.white70),
-                ),
+                  const SizedBox(height: 12),
+
+                  Text(
+                    _isUploading
+                        ? 'Mohon tunggu...'
+                        : _isRecording
+                            ? ' Rekaman berjalan... (10 menit max)'
+                            : 'Tekan untuk mulai rekam',
+                    style: TextStyle(
+                      color: _isUploading
+                          ? Colors.yellow
+                          : Colors.white70,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

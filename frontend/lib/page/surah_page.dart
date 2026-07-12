@@ -53,14 +53,15 @@ class _SuratPageState extends State<SuratPage> {
   }
 
   void _filterSurat(String query) {
+    final lowerQuery = query.toLowerCase();
     setState(() {
-      if (query.isEmpty) {
+      if (lowerQuery.isEmpty) {
         _filteredSurat = _daftarSurat;
       } else {
         _filteredSurat = _daftarSurat.where((surah) {
-          return surah.namaLatin.toLowerCase().contains(query) ||
-              surah.arti.toLowerCase().contains(query) ||
-              surah.nama.toLowerCase().contains(query);
+          return surah.namaLatin.toLowerCase().contains(lowerQuery) ||
+              surah.arti.toLowerCase().contains(lowerQuery) ||
+              surah.nama.toLowerCase().contains(lowerQuery);
         }).toList();
       }
     });
@@ -81,8 +82,8 @@ class _SuratPageState extends State<SuratPage> {
               hintText: 'Cari surat atau arti...',
               controller: _searchController,
               onChanged: _filterSurat,
-              searchTextSize: 16,  
-              hintTextSize: 16, 
+              searchTextSize: 16,
+              hintTextSize: 16,
             ),
             Expanded(child: _buildBody()),
           ],
@@ -198,82 +199,102 @@ class _SuratPageState extends State<SuratPage> {
   }
 
   Widget _buildSuratCard(Surah surah) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => DetailSuratPage(nomorSurat: surah.nomor),
-            ),
-          );
-        },
-        leading: Container(
-          width: 45,
-          height: 45,
-          decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.1),
-            shape: BoxShape.circle,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
-          child: Center(
-            child: Text(
-              surah.nomor.toString(),
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Material(
+          color: Colors.transparent,
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      DetailSuratPage(nomorSurat: surah.nomor),
+                ),
+              );
+            },
+            leading: Container(
+              width: 45,
+              height: 45,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  surah.nomor.toString(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            title: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        surah.namaLatin,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        surah.arti,
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  surah.nama,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: 'Uthmani',
+                  ),
+                ),
+              ],
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
                 children: [
-                  Text(
-                    surah.namaLatin,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    surah.arti,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
+                  _buildChip(surah.tempatTurun),
+                  const SizedBox(width: 8),
+                  _buildChip('${surah.jumlahAyat} Ayat'),
                 ],
               ),
             ),
-            Text(
-              surah.nama,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'Uthmani',
-              ),
+            trailing: Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Colors.grey[400],
             ),
-          ],
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Row(
-            children: [
-              _buildChip(surah.tempatTurun),
-              const SizedBox(width: 8),
-              _buildChip('${surah.jumlahAyat} Ayat'),
-            ],
           ),
-        ),
-        trailing: Icon(
-          Icons.arrow_forward_ios,
-          size: 16,
-          color: Colors.grey[400],
         ),
       ),
     );
