@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../theme/app_theme.dart';
+import '../services/api_service.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoUrl;
@@ -21,10 +22,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     String url = widget.videoUrl;
     if (!url.startsWith('http')) {
       // Fallback if the URL is relative, adjusting for typical local dev
+      final String base = ApiService.baseUrl.replaceAll('/api', '');
       if (url.startsWith('/')) {
-        url = 'http://10.0.2.2:8000$url';
+        url = '$base$url';
       } else {
-        url = 'http://10.0.2.2:8000/$url';
+        url = '$base/$url';
       }
     }
     

@@ -5,6 +5,7 @@ import '../../components/custom_bottom_nav.dart';
 import 'dashboard_page_ustad.dart';
 import '../surah_page.dart';
 import 'setoran_page_ustad.dart';
+import 'santri_binaan_page.dart';
 
 class MainPageUstad extends StatefulWidget {
   final int initialIndex;
@@ -25,6 +26,7 @@ class _MainPageUstadState extends State<MainPageUstad> {
     DashboardPageUstad(),
     SuratPage(),
     SetoranPageUstad(),
+    SantriBinaanPage(),
   ];
 
   @override
@@ -59,6 +61,10 @@ class _MainPageUstadState extends State<MainPageUstad> {
           NavItem(
             label: "Setoran",
             icon: Icons.video_library_rounded,
+          ),
+          NavItem(
+            label: "Santri",
+            icon: Icons.groups_rounded,
           ),
         ],
       ),

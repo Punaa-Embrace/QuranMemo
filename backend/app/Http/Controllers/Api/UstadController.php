@@ -45,14 +45,15 @@ class UstadController extends Controller
         $santriIds = SantriUstad::where('ustad_id', $ustad->id)
             ->pluck('santri_id');
 
-        // Ambil semua setoran dari santri binaan
-        $setoran = SetoranHafalan::whereHas('santriUstad', function ($query) use ($santriIds) {
-            $query->whereIn('santri_id', $santriIds);
-        })->orderBy('id', 'desc')->get();
+        // Ambil semua setoran dari santri binaan, sertakan relasi santri
+        $setoran = SetoranHafalan::with('santriUstad.santri')
+            ->whereHas('santriUstad', function ($query) use ($santriIds) {
+                $query->whereIn('santri_id', $santriIds);
+            })->orderBy('id', 'desc')->get();
 
         return response()->json([
             'success' => true,
-            'data' => $setoran
+            'data'    => $setoran
         ]);
     }
 
@@ -78,14 +79,105 @@ class UstadController extends Controller
             ], 403);
         }
 
+        // Ambil roadmap/riwayat revisi untuk surah dan ayat ini
+        $roadmap = SetoranHafalan::where('santri_ustad_id', $setoran->santri_ustad_id)
+            ->where('surat', $setoran->surat)
+            ->where('ayat', $setoran->ayat)
+            ->orderBy('id', 'asc')
+            ->get();
+
         return response()->json([
             'success' => true,
-            'data' => $setoran
+            'data' => $setoran,
+            'roadmap' => $roadmap
         ]);
     }
 
     // ============================================
-    // 4. KASIH FEEDBACK TULISAN
+    // 4. BUAT TUGAS SETORAN UNTUK SANTRI
+    // ============================================
+
+    public function createTugas(Request $request)
+    {
+        $request->validate([
+            'santri_id' => 'required|exists:santri,id',
+            'surat'     => 'required|string',
+            'ayat'      => 'required|integer',
+        ]);
+
+        $ustad = Auth::user();
+
+        // Cek relasi santri-ustad
+        $santriUstad = SantriUstad::where('ustad_id', $ustad->id)
+            ->where('santri_id', $request->santri_id)
+            ->first();
+
+        if (!$santriUstad) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Santri ini bukan binaan Anda'
+            ], 403);
+        }
+
+        // ============================================================
+        // CEK AYAT TERAKHIR — Jika ayat yang ditugaskan <= ayat yang
+        // sudah selesai pada surah yang sama, berarti sudah pernah
+        // diselesaikan. Ustad harus memberi tugas ayat berikutnya.
+        // ============================================================
+        $ayatTerakhir = AyatTerakhir::where('santri_id', $request->santri_id)
+            ->where('surat', $request->surat)
+            ->orderBy('ayat', 'desc')
+            ->first();
+
+        if ($ayatTerakhir && $request->ayat <= $ayatTerakhir->ayat) {
+            return response()->json([
+                'success' => false,
+                'message' => "Surah {$request->surat} sudah diselesaikan sampai ayat {$ayatTerakhir->ayat}. Berikan tugas mulai ayat " . ($ayatTerakhir->ayat + 1) . " ke atas."
+            ], 400);
+        }
+
+        // Cek apakah tugas yang sama sudah ada dan masih aktif
+        $existing = SetoranHafalan::where('santri_ustad_id', $santriUstad->id)
+            ->where('surat', $request->surat)
+            ->where('ayat', $request->ayat)
+            ->whereIn('status', ['tugas', 'dikirim', 'feedback'])
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tugas untuk surah dan ayat ini sudah ada dan belum selesai'
+            ], 400);
+        }
+
+        // Buat tugas — status 'tugas' artinya menunggu santri menyetorkan video
+        $setoran = SetoranHafalan::create([
+            'santri_ustad_id' => $santriUstad->id,
+            'surat'           => $request->surat,
+            'ayat'            => $request->ayat,
+            'status'          => 'tugas',
+        ]);
+
+        // Kirim notifikasi FCM ke Santri
+        $santriModel = \App\Models\Santri::find($request->santri_id);
+        if ($santriModel && $santriModel->fcm_token) {
+            FcmHelper::send(
+                $santriModel->fcm_token,
+                'Ada Tugas Hafalan Baru!',
+                "Ustad memberi tugas: Surah {$request->surat} Ayat {$request->ayat}. Yuk segera setor!",
+                ['type' => 'tugas_baru', 'setoran_id' => $setoran->id]
+            );
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Tugas berhasil diberikan',
+            'data'    => $setoran
+        ]);
+    }
+
+    // ============================================
+    // 5. KASIH FEEDBACK TULISAN
     // ============================================
 
     public function giveFeedback(Request $request, $id)
@@ -217,7 +309,7 @@ class UstadController extends Controller
     public function uploadVoiceNote(Request $request, $id)
     {
         $request->validate([
-            'voice_note' => 'required|file|mimes:mp3,wav,ogg|max:10240' // Max 10 MB
+            'voice_note' => 'required|file|mimetypes:audio/ogg,audio/mp4,audio/x-m4a,audio/aac,audio/mpeg,audio/wav|max:10240'
         ]);
 
         $setoran = SetoranHafalan::findOrFail($id);
@@ -245,5 +337,70 @@ class UstadController extends Controller
             'message' => 'Voice note berhasil diupload',
             'data' => $setoran
         ]);
+    }
+    // ============================================
+    // 7. STREAM VIDEO SETORAN (SUPPORT RANGE REQUEST)
+    // ============================================
+
+    public function streamVideo(Request $request, $id)
+    {
+        $ustad = Auth::user();
+        $setoran = SetoranHafalan::with('santriUstad')->findOrFail($id);
+
+        $santriIds = SantriUstad::where('ustad_id', $ustad->id)->pluck('santri_id');
+        if (!$santriIds->contains($setoran->santriUstad->santri_id)) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $videoPath = storage_path('app/public/' . $setoran->video_path);
+
+        if (!file_exists($videoPath)) {
+            return response()->json(['message' => 'Video tidak ditemukan'], 404);
+        }
+
+        $size     = filesize($videoPath);
+        $mimeType = mime_content_type($videoPath) ?: 'video/mp4';
+        $start    = 0;
+        $end      = $size - 1;
+        $status   = 200;
+        $headers  = [
+            'Content-Type'              => $mimeType,
+            'Accept-Ranges'             => 'bytes',
+            'Content-Disposition'       => 'inline',
+            'Cache-Control'             => 'no-cache',
+        ];
+
+        if ($request->hasHeader('Range')) {
+            $range = $request->header('Range');
+            preg_match('/bytes=(\d*)-(\d*)/', $range, $matches);
+
+            $start = intval($matches[1] ?? 0);
+            $end   = intval($matches[2] ?? 0) ?: $end;
+
+            if ($start > $end || $start >= $size || $end >= $size) {
+                return response('', 416, ['Content-Range' => "bytes */$size"]);
+            }
+
+            $status = 206;
+            $headers['Content-Range'] = "bytes $start-$end/$size";
+        }
+
+        $length = $end - $start + 1;
+        $headers['Content-Length'] = $length;
+
+        $stream = fopen($videoPath, 'rb');
+        fseek($stream, $start);
+
+        return response()->stream(function () use ($stream, $length) {
+            $remaining = $length;
+            $chunkSize = 1024 * 64; 
+            while ($remaining > 0 && !feof($stream)) {
+                $read = min($chunkSize, $remaining);
+                echo fread($stream, $read);
+                $remaining -= $read;
+                flush();
+            }
+            fclose($stream);
+        }, $status, $headers);
     }
 }

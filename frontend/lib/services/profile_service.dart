@@ -3,8 +3,10 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
 
+import 'api_service.dart';
+
 class ProfileService {
-  static const String baseUrl = 'http://10.0.2.2:8000/api';
+  static String get baseUrl => ApiService.baseUrl;
 
   static Future<Map<String, dynamic>> updateProfile({
     required String nama,

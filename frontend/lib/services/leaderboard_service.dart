@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
+import 'api_service.dart';
+
 class LeaderboardService {
-  static const String baseUrl = 'http://10.0.2.2:8000/api';
+  static String get baseUrl => ApiService.baseUrl;
 
   static Future<Map<String, dynamic>> getLeaderboard() async {
     final token = await AuthService.getToken();

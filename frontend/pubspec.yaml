@@ -8,10 +8,8 @@ environment:
   sdk: ^3.9.2
 
 dependencies:
-
   flutter_local_notifications: ^17.0.0
   timezone: ^0.9.2
-  video_player: ^2.8.3
 
   # Firebase
   firebase_core: ^3.6.0
@@ -44,11 +42,23 @@ dependencies:
   # Camera (buat nyetor)
   camera: ^0.10.5
 
+  # File/Media picker
+  image_picker: ^1.0.7
+
+  # Audio recording
+  record: ^5.1.2  # Versi terbaru
+  # Temp directory for recordings
+  path_provider: ^2.1.2
+
   permission_handler: ^11.3.0
   
   # Icons
   cupertino_icons: ^1.0.8
-  webview_flutter: ^4.13.1
+  webview_flutter: 4.13.1
+  webview_flutter_android: ^4.7.0
+
+  # Local Video
+  video_player: ^2.9.1
 
 dev_dependencies:
   flutter_test:
@@ -84,3 +94,7 @@ flutter:
     - assets/images/SambungAyat.png
 
     - assets/images/self.jpg
+    - assets/videos/
+
+dependency_overrides:
+  record_platform_interface: 1.1.0

@@ -56,15 +56,38 @@ class _DonasiPageState extends State<DonasiPage> {
       final orderId = data['donasi']['order_id'];
 
       // Navigasi ke halaman pembayaran Midtrans
-      Navigator.push(
+      final result = await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => DonasiPaymentPage(
             snapToken: snapToken,
             orderId: orderId,
+            // clientKey: 'KODE_CLIENT_KEY_ANDA', // Uncomment dan isi jika ingin pass dari sini
           ),
         ),
       );
+
+      if (result == 'success') {
+        // Panggil endpoint status untuk memaksa backend mengecek status asli ke Midtrans
+        await DonasiService.getStatusDonasi(orderId);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pembayaran berhasil diproses!'), backgroundColor: Colors.green),
+        );
+        // Navigasi ke Riwayat Donasi jika sudah ada halamannya
+      } else if (result == 'pending') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pembayaran pending.'), backgroundColor: Colors.orange),
+        );
+      } else if (result == 'error') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pembayaran error.'), backgroundColor: Colors.red),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pembayaran dibatalkan atau ditutup.')),
+        );
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

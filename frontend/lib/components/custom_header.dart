@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../page/akun_page.dart';
 
@@ -123,11 +124,36 @@ class CustomHeader extends StatelessWidget {
           MaterialPageRoute(builder: (context) => const AkunPage()),
         );
       },
-      child: CircleAvatar(
-        radius: 20,
-        backgroundColor: Colors.white,
-        backgroundImage: imagePath != null ? AssetImage(imagePath!) : null,
-        child: imagePath == null ? const Icon(Icons.person, color: Colors.grey) : null,
+      child: FutureBuilder<SharedPreferences>(
+        future: SharedPreferences.getInstance(),
+        builder: (context, snapshot) {
+          String initial = '?';
+          if (snapshot.hasData) {
+            final nama = snapshot.data!.getString('nama') ?? '';
+            if (nama.isNotEmpty) {
+              initial = nama[0].toUpperCase();
+            }
+          }
+
+          return Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                initial,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

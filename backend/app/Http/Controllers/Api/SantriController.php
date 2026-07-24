@@ -32,7 +32,7 @@ class SantriController extends Controller
         // CEK AYAT TERAKHIR PER SURAT
         $ayatTerakhir = AyatTerakhir::where('santri_id', $santri->id)
             ->where('surat', $request->surat)
-            ->orderBy('id', 'desc')
+            ->orderBy('ayat', 'desc')
             ->first();
 
         if ($ayatTerakhir && $request->ayat <= $ayatTerakhir->ayat) {
@@ -47,6 +47,7 @@ class SantriController extends Controller
             $query->where('santri_id', $santri->id);
         })->where('surat', $request->surat)
           ->where('ayat', $request->ayat)
+          ->orderBy('id', 'desc')
           ->first();
 
         if ($existing) {
@@ -57,9 +58,8 @@ class SantriController extends Controller
                 ], 400);
             }
 
-            if ($existing->status === 'revisi') {
-                $existing->delete();
-            }
+            // Untuk sistem roadmap/history, kita TIDAK MENGHAPUS setoran yang berstatus 'revisi'.
+            // Biarkan menjadi riwayat, dan setoran baru akan dibuat.
 
             if ($existing->status === 'selesai') {
                 return response()->json([
@@ -127,7 +127,8 @@ class SantriController extends Controller
             ], 400);
         }
 
-        $setoran = SetoranHafalan::where('santri_ustad_id', $santriUstad->id)
+        $setoran = SetoranHafalan::with('santriUstad.ustad')
+            ->where('santri_ustad_id', $santriUstad->id)
             ->orderBy('id', 'desc')
             ->get();
 

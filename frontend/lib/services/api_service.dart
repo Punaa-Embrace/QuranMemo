@@ -9,11 +9,11 @@ class ApiService {
   // ============================================
 
   // IP KOMPUTER (DARI IPCONFIG)
-  static const String _ipAddress = '192.168.100.78'; 
+  static const String _ipAddress = '10.207.74.190'; 
   static const String _port = '8000';
   
   // MODE: 'local' | 'wifi' | 'ngrok'
-  static const String _mode = 'wifi'; 
+  static const String _mode = 'ngrok'; 
 
   static String get baseUrl {
     switch (_mode) {
@@ -27,7 +27,7 @@ class ApiService {
       
       case 'ngrok':
         // Untuk akses dari mana aja (internet)
-        return 'https://YOUR_NGROK_URL.ngrok.io/api';
+        return 'https://bacterium-olympics-surpass.ngrok-free.dev/api';
       
       default:
         return 'http://localhost:$_port/api';
@@ -104,6 +104,7 @@ class ApiService {
     final token = await getToken();
     return {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       'Authorization': 'Bearer $token',
     };
   }

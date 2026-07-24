@@ -55,7 +55,7 @@ class _RekamSetoranPageState extends State<RekamSetoranPage> {
 
       _controller = CameraController(
         camera,
-        ResolutionPreset.medium,
+        ResolutionPreset.low, // Resolusi diturunkan ke low agar file lebih kecil tanpa butuh kompresi tambahan
       );
 
       await _controller!.initialize();
@@ -109,7 +109,8 @@ class _RekamSetoranPageState extends State<RekamSetoranPage> {
       });
 
       // LANGSUNG UPLOAD TANPA PREVIEW
-      await _uploadVideo(file.path);
+      String finalVideoPath = await _compressVideo(file.path);
+      await _uploadVideo(finalVideoPath);
 
     } catch (e) {
       print('Stop recording error: $e');
@@ -123,6 +124,12 @@ class _RekamSetoranPageState extends State<RekamSetoranPage> {
       );
     }
   }
+
+  // Kompresi tidak diperlukan karena sudah pakai ResolutionPreset.low
+  Future<String> _compressVideo(String rawVideoPath) async {
+    return rawVideoPath;
+  }
+
 
   Future<void> _uploadVideo(String videoPath) async {
     try {
@@ -222,7 +229,16 @@ class _RekamSetoranPageState extends State<RekamSetoranPage> {
         body: Stack(
           children: [
             // CAMERA
-            CameraPreview(_controller!),
+            Positioned.fill(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _controller!.value.previewSize?.height ?? 100,
+                  height: _controller!.value.previewSize?.width ?? 100,
+                  child: CameraPreview(_controller!),
+                ),
+              ),
+            ),
 
             // GRADIENT OVERLAY
             Container(

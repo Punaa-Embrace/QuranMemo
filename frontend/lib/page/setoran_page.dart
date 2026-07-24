@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/santri_service.dart';
 import '../services/quran_service.dart';
 import '../components/custom_header.dart';
 import '../models/surah_model.dart';
@@ -26,15 +27,110 @@ class _SetoranPageState extends State<SetoranPage> {
     _loadSurah();
   }
 
+  bool _isLoading = true;
+  bool _hasTugas = false;
+  List<Map<String, dynamic>> _activeTasks = [];
+  Map<String, int> _ayatTerakhirPerSurah = {};
+
   Future<void> _loadSurah() async {
+    setState(() => _isLoading = true);
     final data = await QuranService.getDaftarSurat();
 
-    setState(() {
+    try {
+      final resSetoran = await SantriService.getSetoran();
+      final resProgress = await SantriService.getProgress();
+      
+      if (resProgress['success'] == true) {
+        final allAyatTerakhir = resProgress['data']['all_ayat_terakhir'] ?? {};
+        if (allAyatTerakhir is Map) {
+          allAyatTerakhir.forEach((k, v) {
+            if (v != null && v['ayat'] != null) {
+              _ayatTerakhirPerSurah[k.toString()] = v['ayat'] as int;
+            }
+          });
+        }
+      }
+
+      if (resSetoran['success'] == true) {
+        final List setoran = resSetoran['data'] ?? [];
+        
+        Map<String, Map<String, dynamic>> latestTugasPerSurah = {};
+        Map<String, Map<String, dynamic>> latestSetoranPerSurah = {};
+
+        for (var item in setoran) {
+           var s = item as Map<String, dynamic>;
+           String srt = s['surat'].toString();
+           
+           if (!latestSetoranPerSurah.containsKey(srt)) {
+               latestSetoranPerSurah[srt] = s;
+           }
+           if (s['status'] == 'tugas' && !latestTugasPerSurah.containsKey(srt)) {
+               latestTugasPerSurah[srt] = s;
+           }
+        }
+
+        List<Map<String, dynamic>> finalActiveTasks = [];
+        
+        latestTugasPerSurah.forEach((srt, tugasRecord) {
+           var latest = latestSetoranPerSurah[srt]!;
+           
+           if (latest['status'] == 'dikirim' || latest['status'] == 'feedback') {
+               // Sembunyikan jika sedang menunggu review
+           } else if (latest['status'] == 'selesai') {
+               // Munculkan lagi jika target ayat di tugas ini belum tercapai sepenuhnya
+               int target = int.tryParse(tugasRecord['ayat']?.toString() ?? '1') ?? 1;
+               int selesaiAyat = int.tryParse(latest['ayat']?.toString() ?? '0') ?? 0;
+               if (selesaiAyat < target) {
+                   finalActiveTasks.add(tugasRecord);
+               }
+           } else {
+               // Muncul jika statusnya 'tugas' atau 'revisi'
+               finalActiveTasks.add(tugasRecord);
+           }
+        });
+
+        _activeTasks = finalActiveTasks;
+      }
+    } catch (_) {}
+
+    if (_activeTasks.isNotEmpty) {
+      _hasTugas = true;
+      final activeSurahNumbers = _activeTasks.map((t) => int.tryParse(t['surat']?.toString() ?? '1') ?? 1).toSet();
+      _surahList = data.where((s) => activeSurahNumbers.contains(s.nomor)).toList();
+      if (_surahList.isNotEmpty) {
+        _selectedSurah = _surahList.first;
+      }
+    } else {
+      _hasTugas = false;
       _surahList = data;
       _selectedSurah = data.first;
-    });
+    }
 
-    _loadDetailSurah();
+    _updateAyatRangeForSelectedSurah();
+    await _loadDetailSurah();
+    setState(() => _isLoading = false);
+  }
+
+  void _updateAyatRangeForSelectedSurah() {
+    if (_selectedSurah == null || _activeTasks.isEmpty) return;
+    
+    final srtNo = _selectedSurah!.nomor;
+    final task = _activeTasks.firstWhere(
+      (t) {
+        final tSurat = int.tryParse(t['surat']?.toString() ?? '1') ?? 1;
+        return tSurat == srtNo;
+      }, 
+      orElse: () => _activeTasks.first
+    );
+    
+    final targetAyat = task['ayat'] ?? 1;
+    final lastAyat = _ayatTerakhirPerSurah[srtNo.toString()] ?? 0;
+    
+    // Jika ayat target sama atau di bawah ayat terakhir
+    final startAyat = targetAyat <= lastAyat ? targetAyat : lastAyat + 1;
+    
+    _ayatStart.text = startAyat.toString();
+    _ayatEnd.text = targetAyat.toString();
   }
 
   Future<void> _loadDetailSurah() async {
@@ -74,8 +170,37 @@ class _SetoranPageState extends State<SetoranPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-
-                      /// ===== SURAH =====
+                      if (_isLoading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(40.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (!_hasTugas)
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(40.0),
+                            child: Column(
+                              children: [
+                                Icon(Icons.lock_outline, size: 64, color: Colors.grey[400]),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  "Belum ada tugas hafalan",
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  "Ustad belum memberikan tugas hafalan baru untukmu. Silakan tunggu penugasan dari Ustad.",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else ...[
+                        /// ===== SURAH =====
                       const Text("Surah",
                           style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
@@ -101,8 +226,9 @@ class _SetoranPageState extends State<SetoranPage> {
 
                       const SizedBox(height: 20),
 
-                      /// ===== BUTTON =====
-                      _buildKirimButton(),
+                        /// ===== BUTTON =====
+                        _buildKirimButton(),
+                      ],
                     ],
                   ),
                 ),
@@ -146,8 +272,8 @@ class _SetoranPageState extends State<SetoranPage> {
           onChanged: (value) {
             setState(() {
               _selectedSurah = value;
+              _updateAyatRangeForSelectedSurah();
             });
-
             _loadDetailSurah();
           },
         ),
@@ -188,6 +314,7 @@ class _SetoranPageState extends State<SetoranPage> {
                   );
                 }
               },
+              enabled: false, // Disabled because locked to tugas
               decoration: InputDecoration(
                 hintText: "Dari (1 - $_maxAyat)",
                 border: InputBorder.none,
@@ -224,6 +351,7 @@ class _SetoranPageState extends State<SetoranPage> {
                   );
                 }
               },
+              enabled: false, // Disabled because locked to tugas
               decoration: InputDecoration(
                 hintText: "Sampai (1 - $_maxAyat)",
                 border: InputBorder.none,

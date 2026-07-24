@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+import 'api_service.dart';
 import '../main.dart'; // Import navigatorKey
 import '../page/main_page.dart';
 
@@ -19,7 +20,7 @@ class FCMService {
   static final FlutterLocalNotificationsPlugin _localNotif =
       FlutterLocalNotificationsPlugin();
 
-  static const String baseUrl = 'http://10.0.2.2:8000/api';
+  static String get baseUrl => ApiService.baseUrl;
 
   // ============================================
   // INISIALISASI FCM

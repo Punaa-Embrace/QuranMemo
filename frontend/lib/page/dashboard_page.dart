@@ -4,7 +4,9 @@ import '../../theme/app_theme.dart';
 import '../../components/custom_header.dart';
 import '../../services/santri_service.dart';
 import '../../services/quran_database.dart';
+import '../../services/quran_service.dart';
 import '../../models/surah_model.dart';
+import 'riwayat_page.dart';
 
 class SantriPage extends StatefulWidget {
   const SantriPage({Key? key}) : super(key: key);
@@ -23,8 +25,10 @@ class _SantriPageState extends State<SantriPage> {
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
   
-  Map<String, dynamic> _tugasAktif = {};
+  List<Map<String, dynamic>> _activeTasks = [];
+  List<Map<String, dynamic>> _revisiTasks = [];
   List<DateTime> _setoranDates = [];
+  List<Surah> _allSurah = [];
 
   @override
   void initState() {
@@ -38,10 +42,12 @@ class _SantriPageState extends State<SantriPage> {
     try {
       final progress = await SantriService.getProgress();
       final setoran = await SantriService.getSetoran();
+      final fetchedSurah = await QuranService.getDaftarSurat();
 
       setState(() {
         _progress = progress['data'] ?? {};
         _setoranTerakhir = setoran['data'] ?? [];
+        _allSurah = fetchedSurah;
 
         final ayatTerakhir = _progress['ayat_terakhir'];
         if (ayatTerakhir != null) {
@@ -57,12 +63,59 @@ class _SantriPageState extends State<SantriPage> {
           }
         }).toList();
 
-        _tugasAktif = {
-          'deadline': DateTime.now().add(const Duration(days: 3)),
-          'surat': _suratTerakhir,
-          'ayat': _ayatTerakhir,
-          'target': _ayatTerakhir + 5,
-        };
+
+
+        // Cari tugas aktif dari _setoranTerakhir
+        Map<String, Map<String, dynamic>> latestTugas = {};
+        Map<String, Map<String, dynamic>> latestStatus = {};
+
+        for (var item in _setoranTerakhir) {
+            var s = item as Map<String, dynamic>;
+            String srt = s['surat'].toString();
+            if (!latestStatus.containsKey(srt)) latestStatus[srt] = s;
+            if (s['status'] == 'tugas' && !latestTugas.containsKey(srt)) latestTugas[srt] = s;
+        }
+
+        List<Map<String, dynamic>> tempActive = [];
+        List<Map<String, dynamic>> tempRevisi = [];
+        final allAyatTerakhir = _progress['all_ayat_terakhir'];
+
+        for (var srt in latestTugas.keys) {
+            var tugas = latestTugas[srt]!;
+            var latest = latestStatus[srt]!;
+            
+            final srtNo = int.tryParse(srt) ?? 1;
+            final targetAyat = int.tryParse(tugas['ayat']?.toString() ?? '1') ?? 1;
+            int lastAyat = 0;
+            if (allAyatTerakhir is Map && allAyatTerakhir.containsKey(srt)) {
+              lastAyat = allAyatTerakhir[srt]['ayat'] ?? 0;
+            }
+            final startAyat = targetAyat <= lastAyat ? targetAyat : lastAyat + 1;
+
+            var taskData = {
+              'id': tugas['id'],
+              'surat': srtNo,
+              'start': startAyat,
+              'target': targetAyat,
+              'deadline': DateTime.now().add(const Duration(days: 3)),
+            };
+            
+            if (latest['status'] == 'dikirim' || latest['status'] == 'feedback') {
+                continue; // Menunggu review
+            } else if (latest['status'] == 'selesai') {
+                int selesaiAyat = int.tryParse(latest['ayat']?.toString() ?? '0') ?? 0;
+                if (selesaiAyat < targetAyat) {
+                    tempActive.add(taskData);
+                }
+            } else if (latest['status'] == 'revisi') {
+                tempRevisi.add(taskData);
+            } else {
+                tempActive.add(taskData);
+            }
+        }
+
+        _activeTasks = tempActive;
+        _revisiTasks = tempRevisi;
 
         _isLoading = false;
       });
@@ -100,10 +153,14 @@ class _SantriPageState extends State<SantriPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildTugasCard(),
+                            _buildTugasList(),
                             const SizedBox(height: 16),
                             _buildProgressCard(),
                             const SizedBox(height: 16),
+                            if (_revisiTasks.isNotEmpty) ...[
+                              _buildRevisiList(),
+                              const SizedBox(height: 16),
+                            ],
                             _buildSetoranTerakhir(),
                             const SizedBox(height: 16),
                             _buildCalendar(),
@@ -119,28 +176,92 @@ class _SantriPageState extends State<SantriPage> {
     );
   }
 
-  Widget _buildTugasCard() {
-    final nextAyat = _ayatTerakhir + 1;
-    final targetAyat = _tugasAktif['target'] ?? nextAyat + 4;
-    final deadline = _tugasAktif['deadline'] as DateTime?;
+  Widget _buildTugasList() {
+    if (_activeTasks.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.check_circle_outline, color: Colors.grey[400], size: 48),
+            const SizedBox(height: 12),
+            const Text(
+              'Belum ada tugas baru',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Tunggu Ustad memberikan tugas setoran',
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: _activeTasks.map((task) => _buildSingleTaskCard(task, isRevisi: false)).toList(),
+    );
+  }
+
+  Widget _buildRevisiList() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Perlu Direvisi',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red),
+        ),
+        const SizedBox(height: 8),
+        ..._revisiTasks.map((task) => _buildSingleTaskCard(task, isRevisi: true)).toList(),
+      ],
+    );
+  }
+
+  Widget _buildSingleTaskCard(Map<String, dynamic> task, {required bool isRevisi}) {
+    final targetAyat = task['target'] ?? 1;
+    final startAyat = task['start'] ?? 1;
+    final deadline = task['deadline'] as DateTime?;
     final daysLeft = deadline != null ? deadline.difference(DateTime.now()).inDays : 0;
+    
+    final suratId = task['surat'] ?? 1;
+    Surah? matchedSurah;
+    try {
+      matchedSurah = _allSurah.firstWhere((s) => s.nomor == suratId);
+    } catch (_) {
+      matchedSurah = Surah(
+        nomor: suratId,
+        nama: '',
+        namaLatin: 'Surah $suratId',
+        jumlahAyat: 100,
+        tempatTurun: '',
+        arti: '',
+        deskripsi: '',
+        audioFull: {},
+      );
+    }
 
     return Container(
       width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            AppTheme.primaryColor,
-            const Color(0xFF26B760), // Lighter, more vibrant green
-          ],
+          colors: isRevisi 
+            ? [Colors.redAccent, Colors.red]
+            : [AppTheme.primaryColor, const Color(0xFF26B760)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.35),
+            color: (isRevisi ? Colors.red : AppTheme.primaryColor).withOpacity(0.35),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),
@@ -157,18 +278,18 @@ class _SantriPageState extends State<SantriPage> {
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.assignment, color: Colors.white, size: 20),
+                child: Icon(isRevisi ? Icons.warning_amber_rounded : Icons.assignment, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Tugas Hafalan Aktif',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    Text(
+                      isRevisi ? 'Tugas Revisi' : 'Tugas Hafalan Aktif',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                     ),
-                    if (deadline != null)
+                    if (deadline != null && !isRevisi)
                       Text(
                         daysLeft <= 0
                             ? 'Deadline hari ini!'
@@ -182,7 +303,7 @@ class _SantriPageState extends State<SantriPage> {
                   ],
                 ),
               ),
-              Container(
+              if (!isRevisi) Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: daysLeft <= 1 ? Colors.red : Colors.white.withOpacity(0.2),
@@ -201,9 +322,9 @@ class _SantriPageState extends State<SantriPage> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildInfoChip('Surah $_namaSurat', Colors.white.withOpacity(0.2)),
+              _buildInfoChip('Surah ${matchedSurah.namaLatin}', Colors.white.withOpacity(0.2)),
               const SizedBox(width: 8),
-              _buildInfoChip('Ayat $nextAyat → $targetAyat', Colors.white.withOpacity(0.2)),
+              _buildInfoChip('Ayat $startAyat → $targetAyat', Colors.white.withOpacity(0.2)),
             ],
           ),
           const SizedBox(height: 14),
@@ -215,17 +336,8 @@ class _SantriPageState extends State<SantriPage> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => RekamSetoranPage(
-                      surah: Surah(
-                        nomor: _suratTerakhir ?? 1,
-                        nama: '',
-                        namaLatin: _namaSurat,
-                        jumlahAyat: 100,
-                        tempatTurun: '',
-                        arti: '',
-                        deskripsi: '',
-                        audioFull: {},
-                      ),
-                      ayatStart: nextAyat,
+                      surah: matchedSurah!,
+                      ayatStart: startAyat,
                       ayatEnd: targetAyat,
                     ),
                   ),
@@ -233,16 +345,16 @@ class _SantriPageState extends State<SantriPage> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
-                foregroundColor: AppTheme.primaryColor,
+                foregroundColor: isRevisi ? Colors.red : AppTheme.primaryColor,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.mic, size: 20),
-                  SizedBox(width: 8),
-                  Text('Rekam Setoran', style: TextStyle(fontWeight: FontWeight.w600)),
+                children: [
+                  const Icon(Icons.mic, size: 20),
+                  const SizedBox(width: 8),
+                  Text(isRevisi ? 'Rekam Ulang (Revisi)' : 'Rekam Setoran', style: const TextStyle(fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -438,7 +550,9 @@ class _SantriPageState extends State<SantriPage> {
           ],
         ),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-        onTap: () {},
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const RiwayatPage()));
+        },
       ),
     );
   }
@@ -541,7 +655,6 @@ class _SantriPageState extends State<SantriPage> {
     }
 
     final today = DateTime.now();
-    final deadline = _tugasAktif['deadline'] as DateTime?;
 
     for (int i = 1; i <= daysInMonth; i++) {
       final date = DateTime(_selectedYear, _selectedMonth, i);
@@ -551,10 +664,13 @@ class _SantriPageState extends State<SantriPage> {
         d.year == date.year && d.month == date.month && d.day == date.day
       );
       
-      final isDeadline = deadline != null && 
-        deadline.year == date.year && 
-        deadline.month == date.month && 
-        deadline.day == date.day;
+      final isDeadline = _activeTasks.any((task) {
+        final deadline = task['deadline'] as DateTime?;
+        return deadline != null && 
+          deadline.year == date.year && 
+          deadline.month == date.month && 
+          deadline.day == date.day;
+      });
 
       Color? bgColor;
       if (isToday) {

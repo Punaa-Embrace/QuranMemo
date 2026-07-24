@@ -103,7 +103,7 @@
         <!-- ============================================ -->
         <aside class="w-72 bg-white shadow-xl flex-shrink-0 overflow-y-auto scrollbar-thin z-10">
             <!-- Brand -->
-            <div class="p-6 border-b border-gray-100 bg-gradient-to-r from-brand-50 to-brand-50">
+            <div class="p-6 border-b border-gray-100 bg-gradient from-brand-50 to-brand-50">
                 <div class="flex items-center space-x-3">
                     <div class="w-12 h-8">
                         <img src="{{ asset('images/QuranNoText.png') }}" class="w-full h-full object-contain" alt="Logo">

@@ -91,6 +91,27 @@ class DonasiController extends Controller
     {
         $donasi = Donasi::where('order_id', $orderId)->firstOrFail();
 
+        // Jika di DB masih pending, coba tarik status asli dari server Midtrans
+        // Ini sangat berguna untuk Localhost/Laragon di mana Webhook (Ngrok) sering tidak sampai.
+        if ($donasi->status === 'pending') {
+            try {
+                $statusMidtrans = \Midtrans\Transaction::status($orderId);
+                
+                $transactionStatus = $statusMidtrans->transaction_status ?? '';
+
+                if (in_array($transactionStatus, ['capture', 'settlement'])) {
+                    $donasi->status = 'success';
+                    $donasi->paid_at = now();
+                    $donasi->save();
+                } elseif (in_array($transactionStatus, ['deny', 'expire', 'cancel'])) {
+                    $donasi->status = 'failed';
+                    $donasi->save();
+                }
+            } catch (\Exception $e) {
+                // Abaikan jika orderId belum terekam penuh di sisi Midtrans
+            }
+        }
+
         return response()->json([
             'success' => true,
             'data' => $donasi,

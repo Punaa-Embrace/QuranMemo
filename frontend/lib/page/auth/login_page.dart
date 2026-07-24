@@ -4,6 +4,7 @@ import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/fcm_service.dart';
 import '../ortu/ortu_dashboard.dart';
+import '../ustad/main_page_ustad.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -82,7 +83,7 @@ class _LoginPageState extends State<LoginPage> {
         } else if (role == 'ustad') {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const MainPage()),
+            MaterialPageRoute(builder: (_) => const MainPageUstad()),
           );
         } else {
           Navigator.pushReplacement(

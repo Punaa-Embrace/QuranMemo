@@ -47,6 +47,8 @@ Route::middleware(['auth:sanctum', 'role:ustad'])->prefix('ustad')->group(functi
     Route::get('/santri', [UstadController::class, 'getSantriBinaan']);
     Route::get('/setoran', [UstadController::class, 'getSetoran']);
     Route::get('/setoran/{id}', [UstadController::class, 'detailSetoran']);
+    Route::get('/setoran/{id}/stream', [UstadController::class, 'streamVideo']);
+    Route::post('/tugas', [UstadController::class, 'createTugas']);
     Route::post('/setoran/{id}/feedback', [UstadController::class, 'giveFeedback']);
     Route::put('/setoran/{id}/status', [UstadController::class, 'updateStatus']);
     Route::post('/setoran/{id}/voice-note', [UstadController::class, 'uploadVoiceNote']);
